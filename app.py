@@ -342,79 +342,32 @@ elif tab=="Застосування евристик":
     st.dataframe(final_df,use_container_width=True)
     if len(final_set)<=10: st.success(f"Підмножину звужено до **{len(final_set)} об'єктів**")
 
-elif tab=="Генетичний алгоритм":
-    st.title("Генетичний алгоритм")
-    df_h=load_h_votes()
-    ordered_keys=[k for k,_ in ranked_heuristics_from_votes(df_h)] if len(df_h) else list(HEURISTICS.keys())
-    final_set,_=apply_heuristicsStep(OBJECTS,ordered_keys,counts,scores)
-    final_set=sorted(final_set,key=lambda x:scores[x],reverse=True)[:10]
-    expert_perms=generate_expert_perms(final_set,n_experts=20,seed=42)
-    st.markdown(f"Підмножина: **{', '.join(final_set)}**\n\n**К1** — мін. сума відстаней Кенделла\n\n**К2** — мін. максимум відстані")
-    if st.button("Запустити ГА"):
-        with st.spinner("К1.."): perm1,val1,hist1,iters1,nsol1=genetic_rank(final_set,expert_perms,fitness_mode="sum",pop_size=80,generations=200,mut_rate=0.10)
-        with st.spinner("К2.."): perm2,val2,hist2,iters2,nsol2=genetic_rank(final_set,expert_perms,fitness_mode="max",pop_size=80,generations=200,mut_rate=0.10)
-        st.divider(); st.subheader("Критерій 1 — сума відстаней")
-        ca,cb,cc=st.columns(3); ca.metric("Найкраща сума",val1); cb.metric("Поколінь з покращенням",str(iters1)); cc.metric("Розв'язків",nsol1)
-        st.markdown(f"**{' > '.join(perm1)}**")
-        fig1,ax1=plt.subplots(figsize=(6.5,2.5)); fig1.patch.set_alpha(0); ax1.set_facecolor("none")
-        ax1.plot(hist1,color="#FFD700",linewidth=1.8)
-        for it in iters1: ax1.axvline(x=it-1,color="#FFD700",linestyle=":",alpha=0.5); ax1.text(it-1,hist1[it-1],str(it),color="#FFD700",fontsize=7,va="bottom")
-        ax1.set_xlabel("Покоління",color="white"); ax1.set_ylabel("Сума",color="white"); ax1.tick_params(colors="white")
-        for sp in ax1.spines.values(): sp.set_color("white")
-        cg1,cg2,cg3=st.columns([1,2,1])
-        with cg2: st.pyplot(fig1)
-        st.divider(); st.subheader("Критерій 2 — максимум відстані")
-        cd,ce,cf=st.columns(3); cd.metric("Найкращий макс.",val2); ce.metric("Поколінь з покращенням",str(iters2)); cf.metric("Розв'язків",nsol2)
-        st.markdown(f"**{' > '.join(perm2)}**")
-        fig2,ax2=plt.subplots(figsize=(6.5,2.5)); fig2.patch.set_alpha(0); ax2.set_facecolor("none")
-        ax2.plot(hist2,color="#00FF7F",linewidth=1.8)
-        for it in iters2: ax2.axvline(x=it-1,color="#00FF7F",linestyle=":",alpha=0.5); ax2.text(it-1,hist2[it-1],str(it),color="#00FF7F",fontsize=7,va="bottom")
-        ax2.set_xlabel("Покоління",color="white"); ax2.set_ylabel("Макс.",color="white"); ax2.tick_params(colors="white")
-        for sp in ax2.spines.values(): sp.set_color("white")
-        cg1,cg2,cg3=st.columns([1,2,1])
-        with cg2: st.pyplot(fig2)
-        st.divider(); st.subheader("Порівняння")
-        d1=[kendall_dist(perm1,e) for e in expert_perms]; d2=[kendall_dist(perm2,e) for e in expert_perms]
-        st.dataframe(pd.DataFrame({"Критерій":["Сума","Максимум","Розв'язків"],"Ранж. К1":[sum(d1),max(d1),nsol1],"Ранж. К2":[sum(d2),max(d2),nsol2]}),use_container_width=True,hide_index=True)
+elif tab == "ЛР3":
+    df_h = load_h_votes()
+    if len(df_h)==0:
+        ordered_keys=list(HEURISTICS.keys());
+        ranked_h=[(k,0) for k in HEURISTICS]
+    else:
+        ranked_h=ranked_heuristics_from_votes(df_h);
+        ordered_keys=[k for k,_ in ranked_h]
 
-elif tab=="ЛР3 — Колективне ранжування":
-    st.title("Лабораторна робота №3 — Визначення колективного ранжування об'єктів")
-
-    df_h=load_h_votes()
-    if len(df_h)==0: ordered_keys=list(HEURISTICS.keys()); ranked_h=[(k,0) for k in HEURISTICS]
-    else: ranked_h=ranked_heuristics_from_votes(df_h); ordered_keys=[k for k,_ in ranked_h]
     winners_full,_=apply_heuristicsStep(OBJECTS,ordered_keys,counts,scores)
     winners=sorted(winners_full,key=lambda x:scores[x],reverse=True)[:10]
     n_winners=len(winners)
 
-    st.header("1. Перелік об'єктів (20 об'єктів)")
-    st.dataframe(pd.DataFrame([{"№":i+1,"Об'єкт":o} for i,o in enumerate(OBJECTS)]),use_container_width=True,hide_index=True)
-
-    st.header("2. Список експертів (20 студентів + викладач = 21)")
-    st.dataframe(pd.DataFrame([{"№":i+1,"Експерт":e,"Роль":"Викладач" if e=="Викладач" else "Студент"} for i,e in enumerate(EXPERTS)]),use_container_width=True,hide_index=True)
-
-    st.header("3. Попередній перелік об'єктів-переможців (<=10)")
+    st.header("Перелік об'єктів-переможців")
     st.dataframe(pd.DataFrame([{"№":i+1,"Об'єкт":o,"1-е":counts[o]["c1"],"2-е":counts[o]["c2"],"3-є":counts[o]["c3"],"Бали":scores[o]} for i,o in enumerate(winners)]),use_container_width=True,hide_index=True)
     st.success(f"Підмножина: **{', '.join(winners)}**")
 
-    st.header("4. Перелік та пріоритетність евристик")
-    st.dataframe(pd.DataFrame([{"Пріоритет":i+1,"Евристика":k,"Опис":HEURISTICS[k],"Бали":v} for i,(k,v) in enumerate(ranked_h)]),use_container_width=True,hide_index=True)
-
     st.divider()
 
-    st.header("5. Результати розподіленого опитування — множинні порівняння")
-    st.markdown("Дані зчитуються з **votes.csv** (результати ЛР1). Умова ЛР3: прочитати дані з попередніх ЛР.")
+    st.header("Результати розподіленого опитування")
     triples=load_expert_triples_from_votes(VOTES_FILE,winners)
     if not triples:
         st.warning("Не знайдено жодної трійки з votes.csv."); st.stop()
     triples_df=build_rank_matrix(triples,winners)
     st.dataframe(triples_df,use_container_width=True,hide_index=True)
-    st.info(f"Знайдено **{len(triples)}** множинних порівнянь.")
 
-    st.header("6. Протокол конфіденційного опитування (анонімно)")
-    anon_df=triples_df.copy(); anon_df["Експерт"]=[f"Експерт {i+1}" for i in range(len(anon_df))]
-    st.dataframe(anon_df,use_container_width=True,hide_index=True)
-    st.info("Повний протокол з іменами доступний лише адміністратору (вкладка Адмін).")
 
     st.header("7. Матриця відношень переваги (статистика, п.1.2)")
     pref_matrix=build_preference_matrix(triples,winners)
@@ -546,22 +499,6 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
         st.dataframe(pd.DataFrame(scale_results),use_container_width=True,hide_index=True)
 
     st.divider()
-    st.header("Особливості застосування генетичного алгоритму для задач ранжування")
-    st.markdown("""
-**Задача:** Знаходження медіани Кемені — NP-важка (n! перестановок). ГА дає якісний розв'язок за поліноміальний час.
-
-**Кодування:** хромосома = перестановка об'єктів (список без повторів).
-
-**Функція придатності:** від'ємна сума або від'ємний максимум відстаней Кука від хромосома до кожного МП. Мінус — бо ГА максимізує, а нам треба мінімізувати.
-
-**Оператори:** OX Crossover (зберігає коректність перестановки), мутація свопом, елітний відбір 50%.
-
-**Відмінність E1 і E2 (виправлено в коді):**
-- E1: порівнює відносні ранги об'єктів трійки між собою. Лояльний — не вимагає абсолютного лідерства.
-- E2: порівнює абсолютні ранги в усьому ранжуванні. Суворіший — ідеал: o1 на 1-му місці серед усіх n об'єктів.
-
-**Обмеження:** не гарантує глобального оптимуму. При малій популяції — ризик локального мінімуму.
-    """)
 
 # ══ Адмін ══
 elif tab=="Адмін":
