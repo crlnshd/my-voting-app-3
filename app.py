@@ -273,8 +273,7 @@ def ga_for_scale(n_objs,n_experts,fitness_mode="sum",seed=1):
 scores, counts = load_scores()
 
 tab = st.sidebar.selectbox("Розділ",[
-    "Результати ЛР1","Голосування за евристики","Застосування евристик",
-    "Генетичний алгоритм","ЛР3 — Колективне ранжування","Адмін",
+    "Результати ЛР1","Голосування за евристики","Застосування евристик","ЛР3","Адмін",
 ])
 
 if tab=="Результати ЛР1":
@@ -449,7 +448,7 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
         st.dataframe(rm,use_container_width=True)
 
         output=io.StringIO()
-        output.write("=== ЛР3: Колективне ранжування ===\n\n")
+        output.write("ЛР3\n\n")
         output.write(f"Евристика Кука: {heuristic_key}\nОб'єкти: {', '.join(winners)}\n\n")
         output.write(f"Мін. сума: {min_sum}\nМедіани (сума):\n")
         for p in best_sum: output.write("  "+" > ".join(p)+"\n")
