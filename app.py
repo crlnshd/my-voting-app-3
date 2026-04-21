@@ -251,24 +251,48 @@ def cook_distance_e2(ranks_vec, triple):
         if obj in pos: d+=abs(ideal_rank-pos[obj])
     return d
 
-def brute_force_median(objects_subset, triples, heuristic="E1"):
-    dist_fn = cook_distance_e1 if heuristic=="E1" else cook_distance_e2
-    min_sum=float("inf"); min_max=float("inf")
-    best_perms_sum=[]; best_perms_max=[]; sample_rows=[]
-    for idx,perm in enumerate(itertools.permutations(objects_subset)):
-        perm=list(perm)
-        dists=[dist_fn(perm,t) for t in triples]
-        s=sum(dists); m=max(dists)
-        if idx<8:
-            row={"Перестановка":" > ".join(perm)}
-            for i,t in enumerate(triples): row[f"d{i+1}"]=dists[i]
-            row["Сума"]=s; row["Макс"]=m; sample_rows.append(row)
-        if s<min_sum: min_sum=s; best_perms_sum=[perm]
-        elif s==min_sum: best_perms_sum.append(perm)
-        if m<min_max: min_max=m; best_perms_max=[perm]
-        elif m==min_max: best_perms_max.append(perm)
-    return best_perms_sum,best_perms_max,min_sum,min_max,sample_rows
 
+def brute_force_median(objects_subset, triples, heuristic="E1"):
+    dist_fn = cook_distance_e1 if heuristic == "E1" else cook_distance_e2
+    min_sum = float("inf")
+    min_max = float("inf")
+    best_perms_sum = []
+    best_perms_max = []
+    sample_rows = []
+
+    # Створюємо список всіх можливих перестановок
+    all_perms = list(itertools.permutations(objects_subset))
+
+    for idx, perm in enumerate(all_perms):
+        p_list = list(perm)
+        # Рахуємо відстані до КОЖНОГО експерта окремо
+        dists = [dist_fn(p_list, t) for t in triples]
+        s = sum(dists)
+        m = max(dists)
+
+        # Зберігаємо перші 50 рядків для звіту
+        if idx < 50:
+            row = {"№": idx + 1, "Перестановка": " > ".join(p_list)}
+            # Додаємо колонки d1, d2... як на скріншоті
+            for i, d in enumerate(dists):
+                row[f"d{i + 1}"] = d
+            row["Сума"] = s
+            row["Макс"] = m
+            sample_rows.append(row)
+
+        if s < min_sum:
+            min_sum = s
+            best_perms_sum = [p_list]
+        elif s == min_sum:
+            best_perms_sum.append(p_list)
+
+        if m < min_max:
+            min_max = m
+            best_perms_max = [p_list]
+        elif m == min_max:
+            best_perms_max.append(p_list)
+
+    return best_perms_sum, best_perms_max, min_sum, min_max, sample_rows
 def restore_ranking(perms, objects_subset):
     rows=[{o:i+1 for i,o in enumerate(perm)} for perm in perms]
     return pd.DataFrame(rows,columns=objects_subset)
@@ -445,6 +469,17 @@ elif tab == "ЛР3":
 
     st.header("Матриця рангів за множинними порівняннями (п.1.3)")
     st.markdown("Ранг 1/2/3 = місце у МП; 0 = об'єкт не обирався цим експертом.")
+
+    rank_matrix_data = pd.DataFrame(0, index=[f"Експерт {i + 1}" for i in range(len(triples))], columns=winners)
+    for i, (name, o1, o2, o3) in enumerate(triples):
+        for r, obj in enumerate([o1, o2, o3], 1):
+            if obj in winners:
+                rank_matrix_data.at[f"Експерт {i + 1}", obj] = r
+
+    # Виводимо лише перші 10 рядків
+    st.dataframe(rank_matrix_data.head(10), use_container_width=True)
+
+
     rank_mat=pd.DataFrame(0,index=[f"Ексн.{i+1}" for i in range(len(triples))],columns=winners)
     for i,(_,o1,o2,o3) in enumerate(triples):
         for rank,obj in enumerate([o1,o2,o3],start=1):
@@ -492,6 +527,15 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
             best_sum,best_max,min_sum,min_max,sample_rows=brute_force_median(winners,triples,heuristic=heuristic_key)
 
         st.subheader("9.1 Ілюстрація перших 8 перестановок (перевірка коректності, п.2.1)")
+        st.subheader("9.1 Ілюстрація 50 перестановок (перевірка коректності, п.2.1)")
+        # Тепер тут буде 50 рядків завдяки змінам у brute_force_median
+        st.dataframe(pd.DataFrame(sample_rows), use_container_width=True, hide_index=True)
+        st.caption("Ця таблиця показує відстані Кука до кожного експерта окремо.")
+
+
+
+
+
         st.dataframe(pd.DataFrame(sample_rows),use_container_width=True,hide_index=True)
         st.caption(f"d1..d{len(triples)} — відстані Кука до кожного МП. Сума і Макс — агрегати.")
 
@@ -618,11 +662,11 @@ elif tab=="Адмін":
             pd.DataFrame(columns=["name","h1","h2","h3"]).to_csv(H_VOTES_FILE,index=False)
             st.success("Видалено.")
         st.divider()
-        st.subheader("Протокол голосування ЛР1 (votes.csv)")
+        st.subheader("Протокол голосування ЛР1")
         if os.path.exists(VOTES_FILE):
             df_v=pd.read_csv(VOTES_FILE); st.dataframe(df_v,use_container_width=True)
             with open(VOTES_FILE,"rb") as fh:
-                st.download_button("Завантажити votes.csv",fh,"votes.csv","text/csv")
+                st.download_button("Завантажити",fh,"votes.csv","text/csv")
         else: st.info("Файл votes.csv не знайдено.")
         st.divider()
     elif password: st.error("Невірний пароль")
