@@ -33,7 +33,7 @@ HEURISTICS = {
     "E6": "Сума балів <= 3",
     "E7": "Об'єкт жодного разу не обирався на 1-му місці",
 }
-VOTES_FILE   = "votes.csv"
+VOTES_FILE = "votes.csv"
 H_VOTES_FILE = "heuristic_votes.csv"
 ADMIN_PASSWORD = "admin123"
 SEED_H_VOTES = [
@@ -114,51 +114,60 @@ def apply_heuristicsStep(objects_list,heuristics_order,counts,scores):
                     "Видалено":", ".join(removed) if removed else "—","Залишилось":len(current)})
     return current, log
 
-def generate_expert_perms(objects_subset,n_experts=20,seed=42):
-    rng=random.Random(seed)
-    return [rng.sample(objects_subset,len(objects_subset)) for _ in range(n_experts)]
+def generate_expert_perms(objects_subset, n_experts=20, seed=42):
+    rng = random.Random(seed)
+    return [rng.sample(objects_subset, len(objects_subset)) for _ in range(n_experts)]
 
-def kendall_dist(a,b):
-    pos={o:i for i,o in enumerate(a)}; dist=0; n=len(b)
-    for i in range(n):
-        for j in range(i+1,n):
-            if pos[b[i]]>pos[b[j]]: dist+=1
+def firstdist(perm_a: list, perm_b: list) -> int:
+    dist = 0
+    for i in range(len(perm_a)):
+        if perm_a[i] != perm_b[i]:
+            dist += 1
     return dist
 
-def genetic_rank(objects_subset,expert_perms,fitness_mode="sum",pop_size=80,generations=200,mut_rate=0.10):
-    n=len(objects_subset)
-    if n==0: return [],[],0,[],0
+def genetic_rank(objects_subset, expert_perms, fitness_mode="sum", pop_size=1000, generations=200, mut_rate=0.15):
+    """Генетичний алгоритм з великою популяцією"""
+    n = len(objects_subset)
+    if n == 0: return [], 0, [], [], 0
+
     def fitness(perm):
-        dists=[kendall_dist(perm,exp) for exp in expert_perms]
-        return -sum(dists) if fitness_mode=="sum" else -max(dists)
-    def crosover(p1,p2):
-        a,b=sorted(random.sample(range(n),2)); child=[None]*n
-        child[a:b+1]=p1[a:b+1]; fill=[x for x in p2 if x not in child]; j=0
+        dists = [firstdist(perm, exp) for exp in expert_perms]
+        return -sum(dists) if fitness_mode == "sum" else -max(dists)
+
+    def crossover(p1, p2):
+        a, b = sorted(random.sample(range(n), 2))
+        child = [None] * n
+        child[a:b+1] = p1[a:b+1]
+        fill = [x for x in p2 if x not in child]
+        j = 0
         for i in range(n):
-            if child[i] is None: child[i]=fill[j]; j+=1
+            if child[i] is None: child[i] = fill[j]; j += 1
         return child
+
     def mutate(perm):
-        p=perm[:]
+        p = perm[:]
         for i in range(n):
-            if random.random()<mut_rate:
-                j=random.randint(0,n-1); p[i],p[j]=p[j],p[i]
+            if random.random() < mut_rate:
+                j = random.randint(0, n - 1); p[i], p[j] = p[j], p[i]
         return p
-    popul=[random.sample(objects_subset,n) for _ in range(pop_size)]
-    best_perm=None; best_fit=float("-inf"); history=[]; improve_iters=[]; best_solutions=[]
+
+    popul = [random.sample(objects_subset, n) for _ in range(pop_size)]
+    best_perm = None; best_fit = float("-inf"); history = []; improve_iters = []; best_solutions = []
+
     for gen in range(generations):
-        ranked_pop=sorted(popul,key=fitness,reverse=True); top_fit=fitness(ranked_pop[0])
-        if top_fit>best_fit:
-            best_fit=top_fit; best_perm=ranked_pop[0][:]; improve_iters.append(gen+1); best_solutions=[best_perm[:]]
-        elif top_fit==best_fit:
-            c=ranked_pop[0][:]
+        ranked_pop = sorted(popul, key=fitness, reverse=True)
+        top_fit = fitness(ranked_pop[0])
+        if top_fit > best_fit:
+            best_fit = top_fit; best_perm = ranked_pop[0][:]; improve_iters.append(gen + 1); best_solutions = [best_perm[:]]
+        elif top_fit == best_fit:
+            c = ranked_pop[0][:]
             if c not in best_solutions: best_solutions.append(c)
         history.append(-best_fit)
-        survivors=ranked_pop[:pop_size//2]; new_pop=survivors[:]
-        while len(new_pop)<pop_size:
-            p1,p2=random.sample(survivors,2); new_pop.append(mutate(crosover(p1,p2)))
-        popul=new_pop
-    return best_perm,-best_fit,history,improve_iters,len(best_solutions)
-
+        survivors = ranked_pop[:pop_size//2]; new_pop = survivors[:]
+        while len(new_pop) < pop_size:
+            p1, p2 = random.sample(survivors, 2); new_pop.append(mutate(crossover(p1, p2)))
+        popul = new_pop
+    return best_perm, -best_fit, history, improve_iters, len(best_solutions)
 def load_expert_triples_from_votes(votes_file, objects_subset):
     if not os.path.exists(votes_file):
         return []
@@ -234,33 +243,18 @@ def restore_ranking(perms, objects_subset):
     return pd.DataFrame(rows,columns=objects_subset)
 
 def ga_rank_cook(objects_subset,triples,heuristic="E1",fitness_mode="sum",pop_size=80,generations=300,mut_rate=0.12):
-    n=len(objects_subset)
-    dist_fn=cook_distance_e1 if heuristic=="E1" else cook_distance_e2
+    n=len(objects_subset); dist_fn=cook_distance_e1 if heuristic=="E1" else cook_distance_e2
     def fitness(perm):
         dists=[dist_fn(perm,t) for t in triples]
         return -sum(dists) if fitness_mode=="sum" else -max(dists)
-    def crossover(p1,p2):
-        a,b=sorted(random.sample(range(n),2)); child=[None]*n
-        child[a:b+1]=p1[a:b+1]; fill=[x for x in p2 if x not in child]; j=0
-        for i in range(n):
-            if child[i] is None: child[i]=fill[j]; j+=1
-        return child
-    def mutate(perm):
-        p=perm[:]
-        for i in range(n):
-            if random.random()<mut_rate:
-                j=random.randint(0,n-1); p[i],p[j]=p[j],p[i]
-        return p
-    pop=[random.sample(objects_subset,n) for _ in range(pop_size)]
-    best_perm=None; best_fit=float("-inf"); history=[]; improve_iters=[]
+    pop=[random.sample(objects_subset,n) for _ in range(pop_size)]; best_perm=None; best_fit=float("-inf"); history=[]; improve_iters=[]
     for gen in range(generations):
         ranked_pop=sorted(pop,key=fitness,reverse=True); tf=fitness(ranked_pop[0])
-        if tf>best_fit:
-            best_fit=tf; best_perm=ranked_pop[0][:]; improve_iters.append(gen+1)
+        if tf>best_fit: best_fit=tf; best_perm=ranked_pop[0][:]; improve_iters.append(gen+1)
         history.append(-best_fit)
         survivors=ranked_pop[:pop_size//2]; new_pop=survivors[:]
         while len(new_pop)<pop_size:
-            p1,p2=random.sample(survivors,2); new_pop.append(mutate(crossover(p1,p2)))
+            p1,p2=random.sample(survivors,2); new_pop.append(random.sample(objects_subset,n)) # спрощений ГА для порівняння
         pop=new_pop
     return best_perm,-best_fit,history,improve_iters
 
@@ -314,6 +308,27 @@ elif tab=="Голосування за евристики":
             df_h.to_csv(H_VOTES_FILE,index=False)
             st.success(f"Голос збережено. Ваш вибір: **{h1}** > **{h2}** > **{h3}**")
 
+
+elif tab == "Генетичний алгоритм":
+    st.title("Генетичний алгоритм (Оновлений)")
+    df_h = load_h_votes();
+    ranked = ranked_heuristics_from_votes(df_h)
+    f_set, _ = apply_heuristicsStep(OBJECTS, [k for k, _ in ranked], counts, scores)
+    f_set = sorted(f_set, key=lambda x: scores[x], reverse=True)[:10]
+    expert_perms = generate_expert_perms(f_set, n_experts=20, seed=42)
+
+    st.info(f"Об'єкти: {', '.join(f_set)}")
+    if st.button("Запустити ГА"):
+        p1, v1, h1, i1, n1 = genetic_rank(f_set, expert_perms, fitness_mode="sum", pop_size=1000)
+        p2, v2, h2, i2, n2 = genetic_rank(f_set, expert_perms, fitness_mode="max", pop_size=1000)
+        st.subheader("К1 (Сума)")
+        st.write(f"Значення: {v1}, Розв'язків: {n1}");
+        st.write(" > ".join(p1))
+        st.subheader("К2 (Макс)")
+        st.write(f"Значення: {v2}, Розв'язків: {n2}");
+        st.write(" > ".join(p2))
+
+
 elif tab=="Застосування евристик":
     st.title("Застосування евристик")
     df_h=load_h_votes()
@@ -354,13 +369,7 @@ elif tab == "ЛР3":
     winners=sorted(winners_full,key=lambda x:scores[x],reverse=True)[:10]
     n_winners=len(winners)
 
-    st.header("Перелік об'єктів-переможців")
-    st.dataframe(pd.DataFrame([{"№":i+1,"Об'єкт":o,"1-е":counts[o]["c1"],"2-е":counts[o]["c2"],"3-є":counts[o]["c3"],"Бали":scores[o]} for i,o in enumerate(winners)]),use_container_width=True,hide_index=True)
-    st.success(f"Підмножина: **{', '.join(winners)}**")
-
-    st.divider()
-
-    st.header("Результати розподіленого опитування")
+    st.header("Множинні порівняння")
     triples=load_expert_triples_from_votes(VOTES_FILE,winners)
     if not triples:
         st.warning("Не знайдено жодної трійки з votes.csv."); st.stop()
@@ -368,10 +377,9 @@ elif tab == "ЛР3":
     st.dataframe(triples_df,use_container_width=True,hide_index=True)
 
 
-    st.header("7. Матриця відношень переваги (статистика, п.1.2)")
+    st.header("Матриця відношень переваги (1.2)")
     pref_matrix=build_preference_matrix(triples,winners)
     st.dataframe(pref_matrix,use_container_width=True)
-    st.caption("M[i][j] = скільки разів рядок i переважав стовпець j.")
 
     st.header("8. Матриця рангів за множинними порівняннями (п.1.3)")
     st.markdown("Ранг 1/2/3 = місце у МП; 0 = об'єкт не обирався цим експертом.")
