@@ -457,11 +457,20 @@ elif tab == "ЛР3":
     n_winners=len(winners)
 
     st.header("Множинні порівняння")
-    triples=load_expert_triples_from_votes(VOTES_FILE,winners)
-    if not triples:
-        st.warning("Не знайдено жодної трійки з votes.csv."); st.stop()
-    triples_df=build_rank_matrix(triples,winners)
-    st.dataframe(triples_df,use_container_width=True,hide_index=True)
+    triples = load_expert_triples_from_votes(VOTES_FILE, winners)
+    display_data = {}
+    for i, (name, o1, o2, o3) in enumerate(triples):
+        display_data[f"{i + 1}"] = [o1, o2, o3]
+    df_triples_styled = pd.DataFrame(display_data)
+    df_triples_styled.index = [" ", "Множинні порівняння", " "]
+    st.markdown("Експерти")
+    st.dataframe(df_triples_styled, use_container_width=True)
+
+
+
+
+
+
 
     st.header("Матриця відношень переваги (1.2)")
     pref_matrix=build_preference_matrix(triples,winners)
