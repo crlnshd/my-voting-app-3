@@ -474,38 +474,16 @@ elif tab == "ЛР3":
             if obj in winners:
                 rank_matrix_data.at[f"Експерт {i + 1}", obj] = r
 
-    # Виводимо лише перші 10 рядків
     st.dataframe(rank_matrix_data.head(10), use_container_width=True)
     st.divider()
 
     st.header("Метрики відстані Кука")
-    col_e1,col_e2=st.columns(2)
-    with col_e1:
-        st.markdown("""**E1 — помірна взаємність**
-
-`d = |rel(o1)-1| + |rel(o2)-2| + |rel(o3)-3|`
-
-**Відносні** ранги серед {o1,o2,o3} у кандидаті.
-Якщо o1 перший з трьох — відстань 0 для нього,
-навіть якщо він на 8-му місці загалом. Лояльний критерій.""")
-    with col_e2:
-        st.markdown("""**E2 — максимальне задоволення**
-
-`d = |1-rank(o1)| + |2-rank(o2)| + |3-rank(o3)|`
-
-**Абсолютні** ранги серед усіх n об'єктів.
-o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
-Суворіший критерій, дає більші значення.""")
-
     st.divider()
 
-    st.header("9. Прямий перебір — визначення медіани Кемені")
+    st.header("Прямий перебір - визначення медіани Кемені")
     n_fact=math.factorial(n_winners)
-    st.markdown(f"Кількість перестановок: **{n_winners}! = {n_fact:,}**")
-    if n_winners>8:
-        st.error(f"{n_winners}! = {n_fact:,} — прямий перебір може зависнути. Рекомендується ГА (розділ 10).")
-    elif n_winners>7:
-        st.warning(f"{n_winners}! = {n_fact:,} — може зайняти до хвилини.")
+    st.markdown(f"Кількість перестановок = {n_winners}! - {n_fact:,}")
+
 
     heuristic_choice=st.radio("Евристика метрики Кука",
         ["E1 — помірна взаємність (відносні ранги)","E2 — максимальне задоволення (абсолютні ранги)"],
@@ -513,31 +491,31 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
     heuristic_key="E1" if "E1" in heuristic_choice else "E2"
 
     if st.button("Запустити прямий перебір",key="run_brute"):
-        with st.spinner(f"Перебір {n_fact:,} перестановок..."):
+        with st.spinner(f"Перебір {n_fact:,} перестановок"):
             best_sum,best_max,min_sum,min_max,sample_rows=brute_force_median(winners,triples,heuristic=heuristic_key)
         st.subheader("Перші 50 рядків")
         st.dataframe(pd.DataFrame(sample_rows), use_container_width=True, hide_index=True)
 
-        st.caption(f"d1..d{len(triples)} — відстані Кука до кожного МП. Сума і Макс — агрегати.")
+        st.caption(f"d1..d{len(triples)} — відстані Кука до кожного МП.")
 
-        st.subheader("9.2 Мінімальні значення")
+        st.subheader("Мінімальні значення")
         cm1,cm2=st.columns(2); cm1.metric("Мін. сума відстаней",min_sum); cm2.metric("Мін. максимум відстані",min_max)
 
-        st.subheader("9.3 Медіани за критерієм мін. суми відстаней")
-        st.markdown(f"Знайдено **{len(best_sum)}** перестановок із сумою = {min_sum}:")
+        st.subheader("Медіани за критерієм мін. суми відстаней")
+        st.markdown(f"Знайдено {len(best_sum)} перестановок із сумою = {min_sum}:")
         for p in best_sum[:5]: st.markdown(f"  **{' > '.join(p)}**")
         if len(best_sum)>5: st.info(f"...та ще {len(best_sum)-5}.")
 
-        st.subheader("9.4 Медіани за критерієм мін. максимуму відстані")
-        st.markdown(f"Знайдено **{len(best_max)}** перестановок із макс. відстанню = {min_max}:")
-        for p in best_max[:5]: st.markdown(f"  **{' > '.join(p)}**")
+        st.subheader("Медіани за критерієм мін. максимуму відстані")
+        st.markdown(f"Знайдено {len(best_max)} перестановок із макс. відстанню = {min_max}:")
+        for p in best_max[:5]: st.markdown(f"  {' > '.join(p)}")
         if len(best_max)>5: st.info(f"...та ще {len(best_max)-5}.")
 
-        st.subheader("9.5 Відновлення ранжувань об'єктів (п.4 умови)")
-        st.markdown("**Ранги для медіан за мін. сумою:**")
+        st.subheader("Відновлення ранжувань об'єктів")
+        st.markdown("Ранги для медіан за мін. сумою:")
         rs=restore_ranking(best_sum[:5],winners); rs.index=[f"Медіана {i+1}" for i in range(len(rs))]
         st.dataframe(rs,use_container_width=True)
-        st.markdown("**Ранги для медіан за мін. максимумом:**")
+        st.markdown("Ранги для медіан за мін.макс.: ")
         rm=restore_ranking(best_max[:5],winners); rm.index=[f"Медіана {i+1}" for i in range(len(rm))]
         st.dataframe(rm,use_container_width=True)
 
