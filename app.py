@@ -463,20 +463,14 @@ elif tab == "ЛР3":
         display_data[f"{i + 1}"] = [o1, o2, o3]
     df_triples_styled = pd.DataFrame(display_data)
     df_triples_styled.index = [" ", "Множинні порівняння", " "]
-    st.markdown("Експерти")
     st.dataframe(df_triples_styled, use_container_width=True)
 
 
-
-
-
-
-
-    st.header("Матриця відношень переваги (1.2)")
+    st.header("Матриця відношень переваги")
     pref_matrix=build_preference_matrix(triples,winners)
     st.dataframe(pref_matrix,use_container_width=True)
 
-    st.header("Матриця рангів за множинними порівняннями (п.1.3)")
+    st.header("Матриця рангів за множинними порівняннями ")
     rank_matrix_data = pd.DataFrame(0, index=[f"Експерт {i + 1}" for i in range(len(triples))], columns=winners)
     for i, (name, o1, o2, o3) in enumerate(triples):
         for r, obj in enumerate([o1, o2, o3], 1):
@@ -502,6 +496,10 @@ elif tab == "ЛР3":
     if st.button("Запустити прямий перебір",key="run_brute"):
         with st.spinner(f"Перебір {n_fact:,} перестановок"):
             best_sum,best_max,min_sum,min_max,sample_rows=brute_force_median(winners,triples,heuristic=heuristic_key)
+
+        triples_df = build_rank_matrix(triples, winners)
+        pref_matrix = build_preference_matrix(triples, winners)
+
         st.subheader("Перші 50 рядків")
         st.dataframe(pd.DataFrame(sample_rows), use_container_width=True, hide_index=True)
 
