@@ -476,14 +476,6 @@ elif tab == "ЛР3":
 
     # Виводимо лише перші 10 рядків
     st.dataframe(rank_matrix_data.head(10), use_container_width=True)
-
-
-    rank_mat=pd.DataFrame(0,index=[f"Ексн.{i+1}" for i in range(len(triples))],columns=winners)
-    for i,(_,o1,o2,o3) in enumerate(triples):
-        for rank,obj in enumerate([o1,o2,o3],start=1):
-            if obj in rank_mat.columns: rank_mat.at[f"Ексн.{i+1}",obj]=rank
-    st.dataframe(rank_mat,use_container_width=True)
-
     st.divider()
 
     st.header("Метрики відстані Кука")
@@ -562,18 +554,15 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
 
     st.divider()
 
-    # ── Розділ 10: той самий genetic_rank + firstdist що й у вкладці ГА ──
-    st.header("10. Еволюційний алгоритм (ті самі дані, що й прямий перебір)")
+    st.header("Еволюційний алгоритм")
     st.markdown(
-        "Використовується той самий генетичний алгоритм і метрика (`firstdist`) що й у вкладці **Генетичний алгоритм**. "
-        "Вхід: 20 повних перестановок об'єктів-переможців. Два критерії запускаються послідовно."
+        "Вхід: 20 повних перестановок об'єктів"
     )
 
     ga_mode_lr3 = st.radio("Критерій", ["Мінімізація суми", "Мінімізація максимуму"], horizontal=True, key="ga_mode_lr3")
     ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
 
     if st.button("Запустити еволюційний алгоритм", key="run_ga_lr3"):
-        # генеруємо ті самі 20 перестановок для winners
         expert_perms_lr3 = generate_expert_perms(winners, n_experts=20, seed=42)
 
         label = "сума" if ga_fm_lr3 == "sum" else "максимум"
