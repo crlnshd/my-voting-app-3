@@ -114,7 +114,8 @@ def apply_heuristicsStep(objects_list,heuristics_order,counts,scores):
                     "Видалено":", ".join(removed) if removed else "—","Залишилось":len(current)})
     return current, log
 
-def generate_expert_perms(objects_subset, n_experts=20, seed=42):
+# ── ГА (не змінювати) ──
+def generate_expert_perms(objects_subset: list, n_experts: int = 20, seed: int = 42) -> list[list]:
     rng = random.Random(seed)
     return [rng.sample(objects_subset, len(objects_subset)) for _ in range(n_experts)]
 
@@ -125,49 +126,79 @@ def firstdist(perm_a: list, perm_b: list) -> int:
             dist += 1
     return dist
 
-def genetic_rank(objects_subset, expert_perms, fitness_mode="sum", pop_size=1000, generations=200, mut_rate=0.15):
-    """Генетичний алгоритм з великою популяцією"""
+def genetic_rank(
+    objects_subset: list,
+    expert_perms: list[list],
+    fitness_mode: str = "sum",
+    pop_size: int = 1000,
+    generations: int = 200,
+    mut_rate: float = 0.15,
+) -> tuple[list, float, list, list, int]:
     n = len(objects_subset)
-    if n == 0: return [], 0, [], [], 0
+    if n == 0:
+        return [], 0, [], [], 0
 
-    def fitness(perm):
+    def fitness(perm: list) -> float:
         dists = [firstdist(perm, exp) for exp in expert_perms]
-        return -sum(dists) if fitness_mode == "sum" else -max(dists)
+        if fitness_mode == "sum":
+            return -sum(dists)
+        else:
+            return -max(dists)
 
-    def crossover(p1, p2):
+    def crosover(p1: list, p2: list) -> list:
         a, b = sorted(random.sample(range(n), 2))
         child = [None] * n
-        child[a:b+1] = p1[a:b+1]
+        child[a : b + 1] = p1[a : b + 1]
         fill = [x for x in p2 if x not in child]
         j = 0
         for i in range(n):
-            if child[i] is None: child[i] = fill[j]; j += 1
+            if child[i] is None:
+                child[i] = fill[j]
+                j += 1
         return child
 
-    def mutate(perm):
+    def mutate(perm: list) -> list:
         p = perm[:]
         for i in range(n):
             if random.random() < mut_rate:
-                j = random.randint(0, n - 1); p[i], p[j] = p[j], p[i]
+                j = random.randint(0, n - 1)
+                p[i], p[j] = p[j], p[i]
         return p
 
     popul = [random.sample(objects_subset, n) for _ in range(pop_size)]
-    best_perm = None; best_fit = float("-inf"); history = []; improve_iters = []; best_solutions = []
+    best_perm = None
+    best_fit = float("-inf")
+    history = []
+    improve_iters = []
+    best_solutions = []
 
     for gen in range(generations):
         ranked_pop = sorted(popul, key=fitness, reverse=True)
         top_fit = fitness(ranked_pop[0])
+
         if top_fit > best_fit:
-            best_fit = top_fit; best_perm = ranked_pop[0][:]; improve_iters.append(gen + 1); best_solutions = [best_perm[:]]
+            best_fit = top_fit
+            best_perm = ranked_pop[0][:]
+            improve_iters.append(gen + 1)
+            best_solutions = [best_perm[:]]
         elif top_fit == best_fit:
-            c = ranked_pop[0][:]
-            if c not in best_solutions: best_solutions.append(c)
+            candidate = ranked_pop[0][:]
+            if candidate not in best_solutions:
+                best_solutions.append(candidate)
+
         history.append(-best_fit)
-        survivors = ranked_pop[:pop_size//2]; new_pop = survivors[:]
+
+        survivors = ranked_pop[: pop_size // 2]
+        new_pop = survivors[:]
         while len(new_pop) < pop_size:
-            p1, p2 = random.sample(survivors, 2); new_pop.append(mutate(crossover(p1, p2)))
+            p1, p2 = random.sample(survivors, 2)
+            child = mutate(crosover(p1, p2))
+            new_pop.append(child)
         popul = new_pop
+
     return best_perm, -best_fit, history, improve_iters, len(best_solutions)
+
+# ── ЛР3 допоміжні ──
 def load_expert_triples_from_votes(votes_file, objects_subset):
     if not os.path.exists(votes_file):
         return []
@@ -242,27 +273,17 @@ def restore_ranking(perms, objects_subset):
     rows=[{o:i+1 for i,o in enumerate(perm)} for perm in perms]
     return pd.DataFrame(rows,columns=objects_subset)
 
-def ga_rank_cook(objects_subset,triples,heuristic="E1",fitness_mode="sum",pop_size=80,generations=300,mut_rate=0.12):
-    n=len(objects_subset); dist_fn=cook_distance_e1 if heuristic=="E1" else cook_distance_e2
-    def fitness(perm):
-        dists=[dist_fn(perm,t) for t in triples]
-        return -sum(dists) if fitness_mode=="sum" else -max(dists)
-    pop=[random.sample(objects_subset,n) for _ in range(pop_size)]; best_perm=None; best_fit=float("-inf"); history=[]; improve_iters=[]
-    for gen in range(generations):
-        ranked_pop=sorted(pop,key=fitness,reverse=True); tf=fitness(ranked_pop[0])
-        if tf>best_fit: best_fit=tf; best_perm=ranked_pop[0][:]; improve_iters.append(gen+1)
-        history.append(-best_fit)
-        survivors=ranked_pop[:pop_size//2]; new_pop=survivors[:]
-        while len(new_pop)<pop_size:
-            p1,p2=random.sample(survivors,2); new_pop.append(random.sample(objects_subset,n)) # спрощений ГА для порівняння
-        pop=new_pop
-    return best_perm,-best_fit,history,improve_iters
-
-def ga_for_scale(n_objs,n_experts,fitness_mode="sum",seed=1):
-    rng=random.Random(seed)
-    objs=[f"O{i+1}" for i in range(n_objs)]
-    triples=[(f"E{i+1}",*rng.sample(objs,3)) for i in range(n_experts)]
-    return ga_rank_cook(objs,triples,heuristic="E1",fitness_mode=fitness_mode,pop_size=60,generations=200,mut_rate=0.12)
+# масштабування — також використовує genetic_rank + firstdist
+def ga_for_scale(n_objs, n_experts, fitness_mode="sum", seed=1):
+    rng = random.Random(seed)
+    objs = [f"O{i+1}" for i in range(n_objs)]
+    # генеруємо повні перестановки для кожного "експерта"
+    perms = [rng.sample(objs, n_objs) for _ in range(n_experts)]
+    perm, val, hist, iters, _ = genetic_rank(
+        objs, perms, fitness_mode=fitness_mode,
+        pop_size=60, generations=200, mut_rate=0.15
+    )
+    return perm, val, hist, iters
 
 scores, counts = load_scores()
 
@@ -270,6 +291,7 @@ tab = st.sidebar.selectbox("Розділ",[
     "Результати ЛР1","Голосування за евристики","Застосування евристик","Генетичний алгоритм","ЛР3","Адмін"
 ])
 
+# ══ ЛР1 ══
 if tab=="Результати ЛР1":
     st.title("Результати лабораторної роботи №1")
     rows=[]
@@ -289,6 +311,7 @@ if tab=="Результати ЛР1":
     c1,c2,c3=st.columns([1,2,1])
     with c2: st.pyplot(fig)
 
+# ══ Голосування за евристики ══
 elif tab=="Голосування за евристики":
     st.title("Голосування за пріоритетність евристик")
     st.subheader("Перелік евристик")
@@ -308,27 +331,66 @@ elif tab=="Голосування за евристики":
             df_h.to_csv(H_VOTES_FILE,index=False)
             st.success(f"Голос збережено. Ваш вибір: **{h1}** > **{h2}** > **{h3}**")
 
-
+# ══ Генетичний алгоритм (незмінений) ══
 elif tab == "Генетичний алгоритм":
-    st.title("Генетичний алгоритм (Оновлений)")
-    df_h = load_h_votes();
-    ranked = ranked_heuristics_from_votes(df_h)
-    f_set, _ = apply_heuristicsStep(OBJECTS, [k for k, _ in ranked], counts, scores)
-    f_set = sorted(f_set, key=lambda x: scores[x], reverse=True)[:10]
-    expert_perms = generate_expert_perms(f_set, n_experts=20, seed=42)
+    st.title("Генетичний алгоритм")
+    df_h = load_h_votes()
+    if len(df_h) == 0:
+        st.warning("Немає голосів за евристики, використовується порядок E1...E7")
+        ordered_keys = list(HEURISTICS.keys())
+    else:
+        ranked = ranked_heuristics_from_votes(df_h)
+        ordered_keys = [k for k, _ in ranked]
 
-    st.info(f"Об'єкти: {', '.join(f_set)}")
+    final_set, _ = apply_heuristicsStep(OBJECTS, ordered_keys, counts, scores)
+    final_set = sorted(final_set, key=lambda x: scores[x], reverse=True)[:10]
+
+    expert_perms = generate_expert_perms(final_set, n_experts=20, seed=42)
+
+    pop_size = 80
+    generations = 200
+    mut_rate = 0.10
+
     if st.button("Запустити ГА"):
-        p1, v1, h1, i1, n1 = genetic_rank(f_set, expert_perms, fitness_mode="sum", pop_size=1000)
-        p2, v2, h2, i2, n2 = genetic_rank(f_set, expert_perms, fitness_mode="max", pop_size=1000)
-        st.subheader("К1 (Сума)")
-        st.write(f"Значення: {v1}, Розв'язків: {n1}");
-        st.write(" > ".join(p1))
-        st.subheader("К2 (Макс)")
-        st.write(f"Значення: {v2}, Розв'язків: {n2}");
-        st.write(" > ".join(p2))
+        with st.spinner("К1: мінімізація суми відстаней"):
+            perm1, val1, hist1, iters1, nsol1 = genetic_rank(
+                final_set, expert_perms, fitness_mode="sum",
+                pop_size=pop_size, generations=generations, mut_rate=mut_rate
+            )
+        with st.spinner("К2: мінімізація максимуму відстані"):
+            perm2, val2, hist2, iters2, nsol2 = genetic_rank(
+                final_set, expert_perms, fitness_mode="max",
+                pop_size=pop_size, generations=generations, mut_rate=mut_rate
+            )
 
+        st.divider()
+        st.subheader("Критерій 1 - мінімізація суми відстаней")
+        col_a, col_b, col_c = st.columns(3)
+        col_a.metric("Найкраща сума відстаней", val1)
+        col_b.metric("Знайдено нових кращих у поколіннях", str(iters1))
+        col_c.metric("Кількість розв'язків з цим значенням", nsol1)
+        st.markdown(f"Ранжування (К1): **{' > '.join(perm1)}**")
 
+        st.divider()
+        st.subheader("Критерій 2 - мінімізація максимуму відстані")
+        col_d, col_e, col_f = st.columns(3)
+        col_d.metric("Найкращий максимум відстані", val2)
+        col_e.metric("Знайдено нових кращих у поколіннях", str(iters2))
+        col_f.metric("Кількість розв'язків з цим значенням", nsol2)
+        st.markdown(f"Ранжування (К2): **{' > '.join(perm2)}**")
+
+        st.divider()
+        st.subheader("Порівняння двох критеріїв")
+        dists1_for_perm1 = [firstdist(perm1, exp) for exp in expert_perms]
+        dists1_for_perm2 = [firstdist(perm2, exp) for exp in expert_perms]
+        cmp_df = pd.DataFrame({
+            "Критерій": ["Сума відстаней (К1)", "Максимум відстані (К2)", "Кількість розв'язків"],
+            "Ранжування К1": [sum(dists1_for_perm1), max(dists1_for_perm1), nsol1],
+            "Ранжування К2": [sum(dists1_for_perm2), max(dists1_for_perm2), nsol2],
+        })
+        st.dataframe(cmp_df, use_container_width=True, hide_index=True)
+
+# ══ Застосування евристик ══
 elif tab=="Застосування евристик":
     st.title("Застосування евристик")
     df_h=load_h_votes()
@@ -356,13 +418,14 @@ elif tab=="Застосування евристик":
     st.dataframe(final_df,use_container_width=True)
     if len(final_set)<=10: st.success(f"Підмножину звужено до **{len(final_set)} об'єктів**")
 
+# ══ ЛР3 ══
 elif tab == "ЛР3":
     df_h = load_h_votes()
     if len(df_h)==0:
-        ordered_keys=list(HEURISTICS.keys());
+        ordered_keys=list(HEURISTICS.keys())
         ranked_h=[(k,0) for k in HEURISTICS]
     else:
-        ranked_h=ranked_heuristics_from_votes(df_h);
+        ranked_h=ranked_heuristics_from_votes(df_h)
         ordered_keys=[k for k,_ in ranked_h]
 
     winners_full,_=apply_heuristicsStep(OBJECTS,ordered_keys,counts,scores)
@@ -376,12 +439,11 @@ elif tab == "ЛР3":
     triples_df=build_rank_matrix(triples,winners)
     st.dataframe(triples_df,use_container_width=True,hide_index=True)
 
-
     st.header("Матриця відношень переваги (1.2)")
     pref_matrix=build_preference_matrix(triples,winners)
     st.dataframe(pref_matrix,use_container_width=True)
 
-    st.header("8. Матриця рангів за множинними порівняннями (п.1.3)")
+    st.header("Матриця рангів за множинними порівняннями (п.1.3)")
     st.markdown("Ранг 1/2/3 = місце у МП; 0 = об'єкт не обирався цим експертом.")
     rank_mat=pd.DataFrame(0,index=[f"Ексн.{i+1}" for i in range(len(triples))],columns=winners)
     for i,(_,o1,o2,o3) in enumerate(triples):
@@ -394,14 +456,13 @@ elif tab == "ЛР3":
     st.header("Метрики відстані Кука")
     col_e1,col_e2=st.columns(2)
     with col_e1:
-        st.markdown("""**E1 — помірна взаємність (ВИПРАВЛЕНО)**
+        st.markdown("""**E1 — помірна взаємність**
 
 `d = |rel(o1)-1| + |rel(o2)-2| + |rel(o3)-3|`
 
 **Відносні** ранги серед {o1,o2,o3} у кандидаті.
 Якщо o1 перший з трьох — відстань 0 для нього,
-навіть якщо він на 8-му місці загалом.
-Лояльний критерій.""")
+навіть якщо він на 8-му місці загалом. Лояльний критерій.""")
     with col_e2:
         st.markdown("""**E2 — максимальне задоволення**
 
@@ -468,42 +529,75 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
 
     st.divider()
 
+    # ── Розділ 10: той самий genetic_rank + firstdist що й у вкладці ГА ──
     st.header("10. Еволюційний алгоритм (ті самі дані, що й прямий перебір)")
-    ga_h=st.radio("Евристика Кука для ГА",["E1 — помірна взаємність","E2 — максимальне задоволення"],horizontal=True,key="ga_heuristic")
-    ga_h_key="E1" if "E1" in ga_h else "E2"
-    ga_mode=st.radio("Критерій",["Мінімізація суми","Мінімізація максимуму"],horizontal=True)
-    ga_fm="sum" if "суми" in ga_mode else "max"
+    st.markdown(
+        "Використовується той самий генетичний алгоритм і метрика (`firstdist`) що й у вкладці **Генетичний алгоритм**. "
+        "Вхід: 20 повних перестановок об'єктів-переможців. Два критерії запускаються послідовно."
+    )
 
-    if st.button("Запустити еволюційний алгоритм",key="run_ga_lr3"):
-        with st.spinner("ГА..."):
-            ga_perm,ga_val,ga_hist,ga_iters=ga_rank_cook(winners,triples,heuristic=ga_h_key,fitness_mode=ga_fm,pop_size=80,generations=300,mut_rate=0.12)
-        label="сума" if ga_fm=="sum" else "максимум"
+    ga_mode_lr3 = st.radio("Критерій", ["Мінімізація суми", "Мінімізація максимуму"], horizontal=True, key="ga_mode_lr3")
+    ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
+
+    if st.button("Запустити еволюційний алгоритм", key="run_ga_lr3"):
+        # генеруємо ті самі 20 перестановок для winners
+        expert_perms_lr3 = generate_expert_perms(winners, n_experts=20, seed=42)
+
+        label = "сума" if ga_fm_lr3 == "sum" else "максимум"
+        with st.spinner(f"ГА: мінімізація {label} відстаней..."):
+            ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank(
+                winners, expert_perms_lr3,
+                fitness_mode=ga_fm_lr3,
+                pop_size=80, generations=200, mut_rate=0.10
+            )
+
         st.markdown(f"Ранжування: **{' > '.join(ga_perm)}**")
-        cg1,cg2,cg3=st.columns(3)
-        cg1.metric(f"Найкраще ({label})",ga_val); cg2.metric("Покращень",len(ga_iters)); cg3.metric("Покоління",str(ga_iters))
-        fig_ga,ax_ga=plt.subplots(figsize=(6.5,2.5)); fig_ga.patch.set_alpha(0); ax_ga.set_facecolor("none")
-        ax_ga.plot(ga_hist,color="cyan",linewidth=1.5)
-        for it in ga_iters: ax_ga.axvline(x=it-1,color="cyan",linestyle=":",alpha=0.5); ax_ga.text(it-1,ga_hist[it-1],str(it),color="cyan",fontsize=7,va="bottom")
-        ax_ga.set_xlabel("Покоління",color="white"); ax_ga.set_ylabel(f"Найкращий {label}",color="white"); ax_ga.tick_params(colors="white")
+        cg1,cg2,cg3 = st.columns(3)
+        cg1.metric(f"Найкраще ({label})", ga_val)
+        cg2.metric("Покращень знайдено", len(ga_iters))
+        cg3.metric("Кількість розв'язків", ga_nsol)
+        st.caption(f"Покоління з покращеннями: {ga_iters}")
+
+        fig_ga,ax_ga = plt.subplots(figsize=(6.5,2.5))
+        fig_ga.patch.set_alpha(0); ax_ga.set_facecolor("none")
+        ax_ga.plot(ga_hist, color="cyan", linewidth=1.5)
+        for it in ga_iters:
+            ax_ga.axvline(x=it-1, color="cyan", linestyle=":", alpha=0.5)
+            ax_ga.text(it-1, ga_hist[it-1], str(it), color="cyan", fontsize=7, va="bottom")
+        ax_ga.set_xlabel("Покоління", color="white")
+        ax_ga.set_ylabel(f"Найкращий {label}", color="white")
+        ax_ga.tick_params(colors="white")
         for sp in ax_ga.spines.values(): sp.set_color("white")
-        cg1b,cg2b,cg3b=st.columns([1,3,1])
+        cg1b,cg2b,cg3b = st.columns([1,3,1])
         with cg2b: st.pyplot(fig_ga)
-        dist_fn_ga=cook_distance_e1 if ga_h_key=="E1" else cook_distance_e2
-        dist_rows=[{"Експерт":t[0],"1-й":t[1],"2-й":t[2],"3-й":t[3],"Відстань Кука":dist_fn_ga(ga_perm,t)} for t in triples]
-        dist_df=pd.DataFrame(dist_rows)
+
+        # таблиця відстаней від знайденого ранжування до кожного з 20 перестановок
         st.subheader("Відстані від знайденого ранжування до кожного експерта")
-        st.dataframe(dist_df,use_container_width=True,hide_index=True)
-        cs,cm=st.columns(2); cs.metric("Сума відстаней",dist_df["Відстань Кука"].sum()); cm.metric("Максимум відстані",dist_df["Відстань Кука"].max())
+        dist_rows = [
+            {"Експерт №": i+1, "firstdist": firstdist(ga_perm, exp)}
+            for i, exp in enumerate(expert_perms_lr3)
+        ]
+        dist_df = pd.DataFrame(dist_rows)
+        st.dataframe(dist_df, use_container_width=True, hide_index=True)
+        cs,cm = st.columns(2)
+        cs.metric("Сума відстаней", dist_df["firstdist"].sum())
+        cm.metric("Максимум відстані", dist_df["firstdist"].max())
 
     st.divider()
+
     st.header("11. Масштабування ГА: 20 / 50 / 100 альтернатив")
-    if st.button("Запустити масштабоване тестування",key="run_scale"):
+    if st.button("Запустити масштабоване тестування", key="run_scale"):
         scale_results=[]
         for n_objs,n_exps in [(20,10),(20,20),(20,30),(50,10),(50,20),(50,30),(100,10),(100,20),(100,30)]:
             with st.spinner(f"{n_objs} alt / {n_exps} exp..."):
-                _,val_s,_,iters_s=ga_for_scale(n_objs,n_exps,fitness_mode="sum",seed=42)
-            scale_results.append({"Альтернативи":n_objs,"Експерти":n_exps,"Мін. сума (Кук)":val_s,"Покращень":len(iters_s),"Перше покращення":iters_s[0] if iters_s else "—"})
-        st.dataframe(pd.DataFrame(scale_results),use_container_width=True,hide_index=True)
+                _,val_s,_,iters_s = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
+            scale_results.append({
+                "Альтернативи": n_objs, "Експерти": n_exps,
+                "Мін. сума (firstdist)": val_s,
+                "Покращень": len(iters_s),
+                "Перше покращення": iters_s[0] if iters_s else "—"
+            })
+        st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
 
     st.divider()
 
