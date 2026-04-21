@@ -468,8 +468,6 @@ elif tab == "ЛР3":
     st.dataframe(pref_matrix,use_container_width=True)
 
     st.header("Матриця рангів за множинними порівняннями (п.1.3)")
-    st.markdown("Ранг 1/2/3 = місце у МП; 0 = об'єкт не обирався цим експертом.")
-
     rank_matrix_data = pd.DataFrame(0, index=[f"Експерт {i + 1}" for i in range(len(triples))], columns=winners)
     for i, (name, o1, o2, o3) in enumerate(triples):
         for r, obj in enumerate([o1, o2, o3], 1):
@@ -525,18 +523,9 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
     if st.button("Запустити прямий перебір",key="run_brute"):
         with st.spinner(f"Перебір {n_fact:,} перестановок..."):
             best_sum,best_max,min_sum,min_max,sample_rows=brute_force_median(winners,triples,heuristic=heuristic_key)
-
-        st.subheader("9.1 Ілюстрація перших 8 перестановок (перевірка коректності, п.2.1)")
-        st.subheader("9.1 Ілюстрація 50 перестановок (перевірка коректності, п.2.1)")
-        # Тепер тут буде 50 рядків завдяки змінам у brute_force_median
+        st.subheader("Перші 50 рядків")
         st.dataframe(pd.DataFrame(sample_rows), use_container_width=True, hide_index=True)
-        st.caption("Ця таблиця показує відстані Кука до кожного експерта окремо.")
 
-
-
-
-
-        st.dataframe(pd.DataFrame(sample_rows),use_container_width=True,hide_index=True)
         st.caption(f"d1..d{len(triples)} — відстані Кука до кожного МП. Сума і Макс — агрегати.")
 
         st.subheader("9.2 Мінімальні значення")
@@ -592,7 +581,7 @@ o1 має бути на 1-му місці, o2 на 2-му, o3 на 3-му.
             ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank(
                 winners, expert_perms_lr3,
                 fitness_mode=ga_fm_lr3,
-                pop_size=80, generations=200, mut_rate=0.10
+                pop_size=1000, generations=200, mut_rate=0.10
             )
 
         st.markdown(f"Ранжування: **{' > '.join(ga_perm)}**")
