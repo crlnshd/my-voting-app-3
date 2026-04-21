@@ -309,6 +309,16 @@ def ga_for_scale(n_objs, n_experts, fitness_mode="sum", seed=1):
     )
     return perm, val, hist, iters
 
+def generate_mock_data(n_objs=8, n_experts=13, seed=42):
+    rng = random.Random(seed)
+    test_objs = OBJECTS[:n_objs]
+    test_triples = []
+    for i in range(n_experts):
+        name = f"Експерт {i+1}"
+        choice = rng.sample(test_objs, 3)
+        test_triples.append((name, choice[0], choice[1], choice[2]))
+    return test_objs, test_triples
+
 scores, counts = load_scores()
 
 tab = st.sidebar.selectbox("Розділ",[
@@ -444,17 +454,29 @@ elif tab=="Застосування евристик":
 
 # ══ ЛР3 ══
 elif tab == "ЛР3":
-    df_h = load_h_votes()
-    if len(df_h)==0:
-        ordered_keys=list(HEURISTICS.keys())
-        ranked_h=[(k,0) for k in HEURISTICS]
-    else:
-        ranked_h=ranked_heuristics_from_votes(df_h)
-        ordered_keys=[k for k,_ in ranked_h]
+    data_mode = st.radio(
+        "Оберіть набір даних:",
+        ["10 об'єктів / 20 експертів", "8 об'єктів / 13 експертів"],
+        horizontal=True
+    )
 
-    winners_full,_=apply_heuristicsStep(OBJECTS,ordered_keys,counts,scores)
-    winners=sorted(winners_full,key=lambda x:scores[x],reverse=True)[:10]
-    n_winners=len(winners)
+    if data_mode == "10 об'єктів / 20 експертів":
+        df_h = load_h_votes()
+        if len(df_h)==0:
+            ordered_keys=list(HEURISTICS.keys())
+            ranked_h=[(k,0) for k in HEURISTICS]
+        else:
+            ranked_h=ranked_heuristics_from_votes(df_h)
+            ordered_keys=[k for k,_ in ranked_h]
+
+        winners_full,_=apply_heuristicsStep(OBJECTS,ordered_keys,counts,scores)
+        winners=sorted(winners_full,key=lambda x:scores[x],reverse=True)[:10]
+        n_winners=len(winners)
+    else:
+        winners, triples = generate_mock_data(n_objs=8, n_experts=13)
+        n_winners=len(winners)
+
+
 
     st.header("Множинні порівняння")
     triples = load_expert_triples_from_votes(VOTES_FILE, winners)
