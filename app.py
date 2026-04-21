@@ -625,16 +625,4 @@ elif tab=="Адмін":
                 st.download_button("Завантажити votes.csv",fh,"votes.csv","text/csv")
         else: st.info("Файл votes.csv не знайдено.")
         st.divider()
-        st.subheader("Повний протокол ЛР3 (з іменами, конфіденційно)")
-        sc2,cn2=load_scores()
-        df_h2=load_h_votes()
-        ok2=[k for k,_ in ranked_heuristics_from_votes(df_h2)] if len(df_h2) else list(HEURISTICS.keys())
-        wf2,_=apply_heuristicsStep(OBJECTS,ok2,cn2,sc2)
-        w2=sorted(wf2,key=lambda x:sc2[x],reverse=True)[:10]
-        tr2=load_expert_triples_from_votes(VOTES_FILE,w2)
-        if tr2:
-            fp=pd.DataFrame([{"Експерт":t[0],"1-й вибір":t[1],"2-й вибір":t[2],"3-й вибір":t[3]} for t in tr2])
-            st.dataframe(fp,use_container_width=True,hide_index=True)
-            st.download_button("Завантажити протокол ЛР3",fp.to_csv(index=False).encode("utf-8"),"lab3_protocol.csv","text/csv")
-        else: st.info("Даних з votes.csv ще немає.")
     elif password: st.error("Невірний пароль")
