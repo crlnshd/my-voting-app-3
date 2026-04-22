@@ -623,53 +623,41 @@ elif tab == "ЛР3":
 
     st.header("Еволюційний алгоритм")
 
-    if st.button("Запустити", key="run_ga_lr3_complex"):
-        with st.spinner("К1"):
-            res_sum = genetic_rank_cook(
+    ga_mode_lr3 = st.radio("Критерій", ["Мінімізація суми", "Мінімізація максимуму"], horizontal=True, key="ga_mode_lr3")
+    ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
+
+    if st.button("Запустити", key="run_ga_lr3"):
+        label = "сума" if ga_fm_lr3 == "sum" else "максимум"
+        with st.spinner(f"ГА: мін. {label} відстаней..."):
+            ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank_cook(
                 winners, triples,
                 heuristic=heuristic_key,
-                fitness_mode="sum",
+                fitness_mode=ga_fm_lr3,
                 pop_size=1000, generations=200, mut_rate=0.10
             )
-            perm_s, val_s, hist_s, iters_s, nsol_s = res_sum
 
-        with st.spinner("К2"):
-            res_max = genetic_rank_cook(
-                winners, triples,
-                heuristic=heuristic_key,
-                fitness_mode="max",
-                pop_size=1000, generations=200, mut_rate=0.10
-            )
-            perm_m, val_m, hist_m, iters_m, nsol_m = res_max
+        st.markdown(f"Ранжування: **{' > '.join(ga_perm)}**")
+        cg1, cg2, cg3 = st.columns(3)
+        cg1.metric(f"Найкраще ({label})", ga_val)
+        cg2.metric("Покращень знайдено", len(ga_iters))
+        cg3.metric("Кількість розв'язків", ga_nsol)
+        st.caption(f"Покоління з покращеннями: {ga_iters}")
 
-        st.subheader("Результати за критерієм суми")
-        st.markdown(f"Ранжування: {' > '.join(perm_s)}")
 
-        st.subheader("Результати за критерієм мінімакс")
-        st.markdown(f"Ранжування: {' > '.join(perm_m)}")
 
-        st.divider()
-        st.subheader("Порівняння двох критеріїв")
+        # відстані від знайденого ранжування до кожного експерта — та сама метрика Кука
         dist_fn = cook_distance_e1 if heuristic_key == "E1" else cook_distance_e2
-
-        def get_metrics(p):
-            dists = [dist_fn(p, t) for t in triples]
-            return sum(dists), max(dists)
-
-        s_metrics = get_metrics(perm_s)
-        m_metrics = get_metrics(perm_m)
-
-        comparison_data = {
-            "Критерій": ["Сума відстаней", "Максимум відстані", "Кількість розв'язків"],
-            "Ранжування К1": [s_metrics[0], s_metrics[1], nsol_s],
-            "Ранжування К2": [m_metrics[0], m_metrics[1], nsol_m]
-        }
-
-        st.dataframe(pd.DataFrame(comparison_data), use_container_width=True, hide_index=True)
-
-        with st.expander("Детальні відстані від К1 до експертів"):
-            detailed_dists = [{"Експерт": t[0], "Відстань": dist_fn(perm_s, t)} for t in triples]
-            st.table(pd.DataFrame(detailed_dists))
+        st.subheader("Відстані від знайденого ранжування до кожного експерта")
+        dist_rows = [
+            {"Експерт": t[0], "Відстань:": dist_fn(ga_perm, t)}
+            for t in triples
+        ]
+        dist_df = pd.DataFrame(dist_rows)
+        st.dataframe(dist_df, use_container_width=True, hide_index=True)
+        cs, cm = st.columns(2)
+        cs.metric("Сума відстаней", dist_df["Відстань Кука"].sum())
+        cm.metric("Максимум відстані", dist_df["Відстань Кука"].max())
+    st.divider()
 
     st.header("ГА: 20 / 50 / 100 альтернатив")
     if st.button("Запустити", key="run_scale"):
