@@ -231,6 +231,18 @@ def build_rank_matrix(triples, objects_subset):
     rows=[{"Експерт":e,"1-й":o1,"2-й":o2,"3-й":o3} for e,o1,o2,o3 in triples]
     return pd.DataFrame(rows)
 
+
+def build_expert_stats_table(triples, objects_subset):
+    stats = pd.DataFrame(0, index=["1-ше місце", "2-ге місце", "3-тє місце", "Всього згадок"], columns=objects_subset)
+
+    for _, o1, o2, o3 in triples:
+        if o1 in objects_subset: stats.at["1-ше місце", o1] += 1
+        if o2 in objects_subset: stats.at["2-ге місце", o2] += 1
+        if o3 in objects_subset: stats.at["3-тє місце", o3] += 1
+
+    # Рахуємо останній рядок як суму перших трьох
+    stats.loc["Всього згадок"] = stats.iloc[0:3].sum()
+    return stats
 def cook_distance_e1(ranks_vec, triple):
     _,o1,o2,o3=triple
     pos={o:i for i,o in enumerate(ranks_vec)}
@@ -547,8 +559,8 @@ elif tab == "ЛР3":
 
 
     st.header("Матриця відношень переваги")
-    pref_matrix=build_preference_matrix(triples,winners)
-    st.dataframe(pref_matrix,use_container_width=True)
+    stats_df = build_expert_stats_table(triples, winners)
+    st.dataframe(stats_df, use_container_width=True)
 
     st.header("Матриця рангів за множинними порівняннями ")
     rank_matrix_data = pd.DataFrame(0, index=[f"Експерт {i + 1}" for i in range(len(triples))], columns=winners)
