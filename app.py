@@ -308,7 +308,65 @@ def ga_for_scale(n_objs, n_experts, fitness_mode="sum", seed=1):
         pop_size=60, generations=200, mut_rate=0.15
     )
     return perm, val, hist, iters
+def genetic_rank_cook(objects_subset, triples, heuristic="E1",
+                      fitness_mode="sum", pop_size=80,
+                      generations=200, mut_rate=0.10):
+    # той самий ГА що й genetic_rank, але відстань — метрика Кука по реальних трійках
+    # щоб використовувати ТІ САМІ ДАНІ що й прямий перебір (п.16 завдання)
+    n = len(objects_subset)
+    dist_fn = cook_distance_e1 if heuristic == "E1" else cook_distance_e2
 
+    def fitness(perm):
+        dists = [dist_fn(perm, t) for t in triples]
+        return -sum(dists) if fitness_mode == "sum" else -max(dists)
+
+    def crosover(p1, p2):
+        a, b = sorted(random.sample(range(n), 2))
+        child = [None] * n
+        child[a : b + 1] = p1[a : b + 1]
+        fill = [x for x in p2 if x not in child]
+        j = 0
+        for i in range(n):
+            if child[i] is None:
+                child[i] = fill[j]; j += 1
+        return child
+
+    def mutate(perm):
+        p = perm[:]
+        for i in range(n):
+            if random.random() < mut_rate:
+                j = random.randint(0, n - 1)
+                p[i], p[j] = p[j], p[i]
+        return p
+
+    popul = [random.sample(objects_subset, n) for _ in range(pop_size)]
+    best_perm = None
+    best_fit = float("-inf")
+    history = []
+    improve_iters = []
+    best_solutions = []
+
+    for gen in range(generations):
+        ranked_pop = sorted(popul, key=fitness, reverse=True)
+        top_fit = fitness(ranked_pop[0])
+        if top_fit > best_fit:
+            best_fit = top_fit
+            best_perm = ranked_pop[0][:]
+            improve_iters.append(gen + 1)
+            best_solutions = [best_perm[:]]
+        elif top_fit == best_fit:
+            candidate = ranked_pop[0][:]
+            if candidate not in best_solutions:
+                best_solutions.append(candidate)
+        history.append(-best_fit)
+        survivors = ranked_pop[: pop_size // 2]
+        new_pop = survivors[:]
+        while len(new_pop) < pop_size:
+            p1, p2 = random.sample(survivors, 2)
+            new_pop.append(mutate(crosover(p1, p2)))
+        popul = new_pop
+
+    return best_perm, -best_fit, history, improve_iters, len(best_solutions)
 def generate_mock_data(n_objs=8, n_experts=13, seed=42):
     rng = random.Random(seed)
     test_objs = OBJECTS[:n_objs]
@@ -562,90 +620,56 @@ elif tab == "ЛР3":
     st.divider()
 
     st.header("Еволюційний алгоритм")
-    ga_h_lr3 = st.radio("Евристика Кука для ГА",
-                        ["E1 — помірна взаємність", "E2 — максимальне задоволення"],
-                        horizontal=True, key="ga_cook_h")
-    ga_h_key = "E1" if "E1" in ga_h_lr3 else "E2"
 
-    ga_mode_lr3 = st.radio("Критерій для ГА", ["Мінімізація суми", "Мінімізація максимуму"],
-                           horizontal=True, key="ga_mode_lr3_real")
+    ga_mode_lr3 = st.radio("Критерій", ["Мінімізація суми", "Мінімізація максимуму"], horizontal=True, key="ga_mode_lr3")
     ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
-    #ga_mode_lr3 = st.radio("Критерій", ["Мінімізація суми", "Мінімізація максимуму"], horizontal=True, key="ga_mode_lr3")
-    #   ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
-    #
-    #  if st.button("Запустити еволюційний алгоритм", key="run_ga_lr3"):
-    #      expert_perms_lr3 = generate_expert_perms(winners, n_experts=20, seed=42)
-    #
-    #     label = "сума" if ga_fm_lr3 == "sum" else "максимум"
-    #    with st.spinner(f"ГА: мінімізація {label} відстаней..."):
-    #        ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank(
-    #            winners, expert_perms_lr3,
-    #            fitness_mode=ga_fm_lr3,
-    #           pop_size=1000, generations=200, mut_rate=0.10
-    #       )
 
-    #    st.markdown(f"Ранжування: **{' > '.join(ga_perm)}**")
-    #    cg1,cg2,cg3 = st.columns(3)
-    #    cg1.metric(f"Найкраще ({label})", ga_val)
-    #    cg2.metric("Покращень знайдено", len(ga_iters))
-    #    cg3.metric("Кількість розв'язків", ga_nsol)
-    #    st.caption(f"Покоління з покращеннями: {ga_iters}")
+    if st.button("Запустити", key="run_ga_lr3"):
+        # ВИПРАВЛЕНО: ті самі triples що й прямий перебір (п.16 завдання)
+        label = "сума" if ga_fm_lr3 == "sum" else "максимум"
+        with st.spinner(f"ГА: мінімізація {label} відстаней..."):
+            ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank_cook(
+                winners, triples,
+                heuristic=heuristic_key,  # та сама евристика Кука що й перебір
+                fitness_mode=ga_fm_lr3,
+                pop_size=1000, generations=200, mut_rate=0.10
+            )
 
-    #    fig_ga,ax_ga = plt.subplots(figsize=(6.5,2.5))
-    #    fig_ga.patch.set_alpha(0); ax_ga.set_facecolor("none")
-    #    ax_ga.plot(ga_hist, color="cyan", linewidth=1.5)
-    #    for it in ga_iters:
-    #        ax_ga.axvline(x=it-1, color="cyan", linestyle=":", alpha=0.5)
-    #        ax_ga.text(it-1, ga_hist[it-1], str(it), color="cyan", fontsize=7, va="bottom")
-    #   ax_ga.set_xlabel("Покоління", color="white")
-    #    ax_ga.set_ylabel(f"Найкращий {label}", color="white")
-    #      ax_ga.tick_params(colors="white")
-    #   #    for sp in ax_ga.spines.values(): sp.set_color("white")
-    #      cg1b,cg2b,cg3b = st.columns([1,3,1])
-    #      with cg2b: st.pyplot(fig_ga)
+        st.markdown(f"Ранжування: **{' > '.join(ga_perm)}**")
+        cg1, cg2, cg3 = st.columns(3)
+        cg1.metric(f"Найкраще ({label})", ga_val)
+        cg2.metric("Покращень знайдено", len(ga_iters))
+        cg3.metric("Кількість розв'язків", ga_nsol)
+        st.caption(f"Покоління з покращеннями: {ga_iters}")
 
-        # таблиця відстаней від знайденого ранжування до кожного з 20 перестановок
-    #    st.subheader("Відстані від знайденого ранжування до кожного експерта")
-    #    dist_rows = [
-            #        {"Експерт №": i+1, "firstdist": firstdist(ga_perm, exp)}
-    #        for i, exp in enumerate(expert_perms_lr3)
-    #    ]
-    #    dist_df = pd.DataFrame(dist_rows)
-    #    st.dataframe(dist_df, use_container_width=True, hide_index=True)
-    #   cs,cm = st.columns(2)
-    #    cs.metric("Сума відстаней", dist_df["firstdist"].sum())
-    #     cm.metric("Максимум відстані", dist_df["firstdist"].max())
+        fig_ga, ax_ga = plt.subplots(figsize=(6.5, 2.5))
+        fig_ga.patch.set_alpha(0);
+        ax_ga.set_facecolor("none")
+        ax_ga.plot(ga_hist, color="cyan", linewidth=1.5)
+        for it in ga_iters:
+            ax_ga.axvline(x=it - 1, color="cyan", linestyle=":", alpha=0.5)
+            ax_ga.text(it - 1, ga_hist[it - 1], str(it), color="cyan", fontsize=7, va="bottom")
+        ax_ga.set_xlabel("Покоління", color="white")
+        ax_ga.set_ylabel(f"Найкращий {label}", color="white")
+        ax_ga.tick_params(colors="white")
+        for sp in ax_ga.spines.values(): sp.set_color("white")
+        c1b, c2b, c3b = st.columns([1, 3, 1])
+        with c2b:
+            st.pyplot(fig_ga)
 
-if st.button("Запустити ГА для порівняння", key="run_ga_lr3_real"):
-    # ВАЖЛИВО: використовуємо ga_rank_cook, який працює з triples (даними перебору)
-    # а не з випадковими перестановками!
-    with st.spinner("ГА виконує пошук..."):
-        ga_perm, ga_val, ga_hist, ga_iters = genetic_rank(
-            winners, triples,
-            heuristic=ga_h_key,
-            fitness_mode=ga_fm_lr3,
-            pop_size=100, generations=300, mut_rate=0.15
-        )
-
-    label = "сума" if ga_fm_lr3 == "sum" else "максимум"
-    st.success(f"Результат ГА за критерієм ({label}):")
-    st.markdown(f"**Ранжування:** {' > '.join(ga_perm)}")
-
-    c1, c2 = st.columns(2)
-    c1.metric(f"Значення ({label})", ga_val)
-    c2.metric("Поколінь до медіани", ga_iters[-1] if ga_iters else 0)
-
-    # Розрахунок відстаней для кожного експерта (для таблиці порівняння)
-    dist_fn = cook_distance_e1 if ga_h_key == "E1" else cook_distance_e2
-    diff_rows = []
-    for i, t in enumerate(triples):
-        diff_rows.append({
-            "Експерт": t[0],
-            "Відстань (ГА)": dist_fn(ga_perm, t)
-        })
-
-    st.subheader("Відстані від рішення ГА до кожного експерта")
-    st.dataframe(pd.DataFrame(diff_rows), use_container_width=True)
+        # відстані від знайденого ранжування до кожного експерта — та сама метрика Кука
+        dist_fn = cook_distance_e1 if heuristic_key == "E1" else cook_distance_e2
+        st.subheader("Відстані від знайденого ранжування до кожного експерта (метрика Кука)")
+        dist_rows = [
+            {"Експерт": t[0], "1-й вибір": t[1], "2-й вибір": t[2],
+             "3-й вибір": t[3], "Відстань Кука": dist_fn(ga_perm, t)}
+            for t in triples
+        ]
+        dist_df = pd.DataFrame(dist_rows)
+        st.dataframe(dist_df, use_container_width=True, hide_index=True)
+        cs, cm = st.columns(2)
+        cs.metric("Сума відстаней", dist_df["Відстань Кука"].sum())
+        cm.metric("Максимум відстані", dist_df["Відстань Кука"].max())
     st.divider()
 
     st.header("ГА: 20 / 50 / 100 альтернатив")
