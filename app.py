@@ -367,7 +367,7 @@ def genetic_rank_cook(objects_subset, triples, heuristic="E1",
         popul = new_pop
 
     return best_perm, -best_fit, history, improve_iters, len(best_solutions)
-def generate_mock_data(n_objs=8, n_experts=13, seed=42):
+def generate_mock_data(n_objs=8, n_experts=11, seed=42):
     rng = random.Random(seed)
     test_objs = OBJECTS[:n_objs]
     test_triples = []
@@ -514,7 +514,7 @@ elif tab=="Застосування евристик":
 elif tab == "ЛР3":
     data_mode = st.radio(
         "Оберіть набір даних:",
-        ["10 об'єктів / 16 експертів", "8 об'єктів / 13 експертів"],
+        ["10 об'єктів / 16 експертів", "8 об'єктів / 11 експертів"],
         horizontal=True
     )
 
@@ -530,6 +530,7 @@ elif tab == "ЛР3":
         winners_full,_=apply_heuristicsStep(OBJECTS,ordered_keys,counts,scores)
         winners=sorted(winners_full,key=lambda x:scores[x],reverse=True)[:10]
         n_winners=len(winners)
+        triples = load_expert_triples_from_votes(VOTES_FILE, winners)
     else:
         winners, triples = generate_mock_data(n_objs=8, n_experts=13)
         n_winners=len(winners)
@@ -537,7 +538,6 @@ elif tab == "ЛР3":
 
 
     st.header("Множинні порівняння")
-    triples = load_expert_triples_from_votes(VOTES_FILE, winners)
     display_data = {}
     for i, (name, o1, o2, o3) in enumerate(triples):
         display_data[f"{i + 1}"] = [o1, o2, o3]
@@ -625,12 +625,11 @@ elif tab == "ЛР3":
     ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
 
     if st.button("Запустити", key="run_ga_lr3"):
-        # ВИПРАВЛЕНО: ті самі triples що й прямий перебір (п.16 завдання)
         label = "сума" if ga_fm_lr3 == "sum" else "максимум"
         with st.spinner(f"ГА: мінімізація {label} відстаней..."):
             ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank_cook(
                 winners, triples,
-                heuristic=heuristic_key,  # та сама евристика Кука що й перебір
+                heuristic=heuristic_key,
                 fitness_mode=ga_fm_lr3,
                 pop_size=1000, generations=200, mut_rate=0.10
             )
