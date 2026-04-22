@@ -376,6 +376,23 @@ def genetic_rank_cook(objects_subset, triples, heuristic="E1",
         popul = new_pop
 
     return best_perm, -best_fit, history, improve_iters, len(best_solutions)
+
+
+def run_dual_ga_scale(n_objs, n_exps, seed=42):
+    rng = random.Random(seed)
+    objs = [f"O{i + 1}" for i in range(n_objs)]
+    expert_perms = [rng.sample(objs, n_objs) for _ in range(n_exps)]
+
+    p_s, v_s, _, it_s, _ = genetic_rank(objs, expert_perms, fitness_mode="sum", pop_size=60, generations=200)
+    d_s = [firstdist(p_s, exp) for exp in expert_perms]
+    cross_max_for_s = max(d_s)
+
+    p_m, v_m, _, it_m, _ = genetic_rank(objs, expert_perms, fitness_mode="max", pop_size=60, generations=200)
+    d_m = [firstdist(p_m, exp) for exp in expert_perms]
+    cross_sum_for_m = sum(d_m)
+
+    return v_s, cross_max_for_s, len(it_s), v_m, cross_sum_for_m, len(it_m)
+
 def generate_mock_data(n_objs=8, n_experts=11, seed=42):
     rng = random.Random(seed)
     test_objs = OBJECTS[:n_objs]
@@ -725,21 +742,20 @@ elif tab == "ЛР3":
         progress_bar = st.progress(0)
         for i, (n_objs, n_exps) in enumerate(test_cases):
             with st.spinner(f"{n_objs} альтернатив / {n_exps} експертів"):
-                perm_s, val_s_sum, _, iters_sum = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
-                perm_m, val_m_max, _, iters_max = ga_for_scale(n_objs, n_exps, fitness_mode="max", seed=42)
+                sum_s, max_s, it_s, max_m, sum_m, it_m = run_dual_ga_scale(n_objs, n_exps)
 
                 scale_results.append({
                     "Альтернативи": n_objs,
                     "Експерти": n_exps,
-                    "Мін. сума (К1)": f"{val_s_sum} (max: ~{int(val_s_sum / n_exps * 1.2)})",
-                    "Покращень К1": len(iters_sum),
-                    "Мін. макс (К2)": f"{val_m_max} (sum: ~{int(val_m_max * n_exps * 0.8)})",
-                    "Покращень К2": len(iters_max)
+                    "Мін. сума (К1)": f"{sum_s} (max: {max_s})",
+                    "Покращень К1": it_s,
+                    "Мін. макс (К2)": f"{max_m} (sum: {sum_m})",
+                    "Покращень К2": it_m
                 })
             progress_bar.progress((i + 1) / len(test_cases))
 
         st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
-    st.divider()
+        st.divider()
 
 # ══ Адмін ══
 elif tab=="Адмін":
