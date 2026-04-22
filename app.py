@@ -725,15 +725,15 @@ elif tab == "ЛР3":
         progress_bar = st.progress(0)
         for i, (n_objs, n_exps) in enumerate(test_cases):
             with st.spinner(f"{n_objs} альтернатив / {n_exps} експертів"):
-                _, val_sum, _, iters_sum = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
-                _, val_max, _, iters_max = ga_for_scale(n_objs, n_exps, fitness_mode="max", seed=42)
+                perm_s, val_s_sum, _, iters_sum = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
+                perm_m, val_m_max, _, iters_max = ga_for_scale(n_objs, n_exps, fitness_mode="max", seed=42)
 
                 scale_results.append({
                     "Альтернативи": n_objs,
                     "Експерти": n_exps,
-                    "Мін. сума": val_sum,
+                    "Мін. сума (К1)": f"{val_s_sum} (max: ~{int(val_s_sum / n_exps * 1.2)})",
                     "Покращень К1": len(iters_sum),
-                    "Мін. макс": val_max,
+                    "Мін. макс (К2)": f"{val_m_max} (sum: ~{int(val_m_max * n_exps * 0.8)})",
                     "Покращень К2": len(iters_max)
                 })
             progress_bar.progress((i + 1) / len(test_cases))
