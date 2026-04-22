@@ -747,9 +747,9 @@ elif tab == "ЛР3":
                 scale_results.append({
                     "Альтернативи": n_objs,
                     "Експерти": n_exps,
-                    "Мін. сума (К1)": f"{sum_s} (max: {max_s})",
+                    "Мін. сума (К1)": f"{sum_s}",
                     "Покращень К1": it_s,
-                    "Мін. макс (К2)": f"{max_m} (sum: {sum_m})",
+                    "Мін. макс (К2)": f"{max_m}",
                     "Покращень К2": it_m
                 })
             progress_bar.progress((i + 1) / len(test_cases))
