@@ -233,7 +233,7 @@ def build_rank_matrix(triples, objects_subset):
 
 
 def build_expert_stats_table(triples, objects_subset):
-    stats = pd.DataFrame(0, index=["1-ше місце", "2-ге місце", "3-тє місце", "Всього згадок"], columns=objects_subset)
+    stats = pd.DataFrame(0, index=["1", "2", "3", " "], columns=objects_subset)
 
     for _, o1, o2, o3 in triples:
         if o1 in objects_subset: stats.at["1-ше місце", o1] += 1
