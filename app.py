@@ -700,19 +700,45 @@ elif tab == "ЛР3":
         st.dataframe(compare_df, use_container_width=True, hide_index=True)
         st.divider()
 
+    #st.header("ГА: 20 / 50 / 100 альтернатив")
+    #if st.button("Запустити", key="run_scale"):
+    #    scale_results=[]
+    #    for n_objs,n_exps in [(20,10),(20,20),(20,30),(50,10),(50,20),(50,30),(100,10),(100,20),(100,30)]:
+    #        with st.spinner(f"{n_objs} alt / {n_exps} exp..."):
+    #            _,val_s,_,iters_s = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
+    #        scale_results.append({
+    #            "Альтернативи": n_objs, "Експерти": n_exps,
+    #            "Мін. сума": val_s,
+    #            "Покращень": len(iters_s)
+    #        })
+    #    st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
     st.header("ГА: 20 / 50 / 100 альтернатив")
-    if st.button("Запустити", key="run_scale"):
-        scale_results=[]
-        for n_objs,n_exps in [(20,10),(20,20),(20,30),(50,10),(50,20),(50,30),(100,10),(100,20),(100,30)]:
-            with st.spinner(f"{n_objs} alt / {n_exps} exp..."):
-                _,val_s,_,iters_s = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
-            scale_results.append({
-                "Альтернативи": n_objs, "Експерти": n_exps,
-                "Мін. сума": val_s,
-                "Покращень": len(iters_s)
-            })
-        st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
 
+    if st.button("Запустити", key="run_scale"):
+        scale_results = []
+        test_cases = [
+            (20, 10), (20, 20), (20, 30),
+            (50, 10), (50, 20), (50, 30),
+            (100, 10), (100, 20), (100, 30)
+        ]
+
+        progress_bar = st.progress(0)
+        for i, (n_objs, n_exps) in enumerate(test_cases):
+            with st.spinner(f"Тестування: {n_objs} альтернатив / {n_exps} експертів"):
+                _, val_sum, _, iters_sum = ga_for_scale(n_objs, n_exps, fitness_mode="sum", seed=42)
+                _, val_max, _, iters_max = ga_for_scale(n_objs, n_exps, fitness_mode="max", seed=42)
+
+                scale_results.append({
+                    "Альтернативи": n_objs,
+                    "Експерти": n_exps,
+                    "Мін. сума": val_sum,
+                    "Покращень": len(iters_sum),
+                    "Мін. макс": val_max,
+                    "Покращень": len(iters_max)
+                })
+            progress_bar.progress((i + 1) / len(test_cases))
+
+        st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
     st.divider()
 
 # ══ Адмін ══
