@@ -620,7 +620,7 @@ elif tab == "ЛР3":
         st.download_button("Зберегти результати у .txt",data=output.getvalue().encode("utf-8"),file_name="lab3_results.txt",mime="text/plain")
 
     st.divider()
-
+    st.header("Еволюційний алгоритм")
     if st.button("Запустити", key="run_ga_lr3"):
         results = []
         for ga_fm_lr3 in ["sum", "max"]:
