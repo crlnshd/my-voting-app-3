@@ -234,14 +234,11 @@ def build_rank_matrix(triples, objects_subset):
 
 def build_expert_stats_table(triples, objects_subset):
     stats = pd.DataFrame(0, index=["1", "2", "3", " "], columns=objects_subset)
-
     for _, o1, o2, o3 in triples:
-        if o1 in objects_subset: stats.at["1-ше місце", o1] += 1
-        if o2 in objects_subset: stats.at["2-ге місце", o2] += 1
-        if o3 in objects_subset: stats.at["3-тє місце", o3] += 1
-
-    # Рахуємо останній рядок як суму перших трьох
-    stats.loc["Всього згадок"] = stats.iloc[0:3].sum()
+        if o1 in objects_subset: stats.at["1", o1] += 1
+        if o2 in objects_subset: stats.at["2", o2] += 1
+        if o3 in objects_subset: stats.at["3", o3] += 1
+    stats.loc[" "] = stats.iloc[0:3].sum()
     return stats
 def cook_distance_e1(ranks_vec, triple):
     _,o1,o2,o3=triple
