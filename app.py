@@ -579,7 +579,7 @@ elif tab == "ЛР3":
         horizontal=True,key="brute_heuristic")
     heuristic_key="E1" if "E1" in heuristic_choice else "E2"
 
-    if st.button("Запустити прямий перебір",key="run_brute"):
+    if st.button("Запустити",key="run_brute"):
         with st.spinner(f"Перебір {n_fact:,} перестановок"):
             best_sum,best_max,min_sum,min_max,sample_rows=brute_force_median(winners,triples,heuristic=heuristic_key)
 
@@ -589,20 +589,16 @@ elif tab == "ЛР3":
         st.subheader("Перші 50 рядків")
         st.dataframe(pd.DataFrame(sample_rows), use_container_width=True, hide_index=True)
 
-        st.caption(f"d1..d{len(triples)} — відстані Кука до кожного МП.")
-
         st.subheader("Мінімальні значення")
         cm1,cm2=st.columns(2); cm1.metric("Мін. сума відстаней",min_sum); cm2.metric("Мін. максимум відстані",min_max)
 
         st.subheader("Медіани за критерієм мін. суми відстаней")
         st.markdown(f"Знайдено {len(best_sum)} перестановок із сумою = {min_sum}:")
         for p in best_sum[:5]: st.markdown(f"  **{' > '.join(p)}**")
-        if len(best_sum)>5: st.info(f"...та ще {len(best_sum)-5}.")
 
         st.subheader("Медіани за критерієм мін. максимуму відстані")
         st.markdown(f"Знайдено {len(best_max)} перестановок із макс. відстанню = {min_max}:")
         for p in best_max[:5]: st.markdown(f"  {' > '.join(p)}")
-        if len(best_max)>5: st.info(f"...та ще {len(best_max)-5}.")
 
         st.subheader("Відновлення ранжувань об'єктів")
         st.markdown("Ранги для медіан за мін. сумою:")
@@ -632,7 +628,7 @@ elif tab == "ЛР3":
 
     if st.button("Запустити", key="run_ga_lr3"):
         label = "сума" if ga_fm_lr3 == "sum" else "максимум"
-        with st.spinner(f"ГА: мінімізація {label} відстаней..."):
+        with st.spinner(f"ГА: мін. {label} відстаней..."):
             ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank_cook(
                 winners, triples,
                 heuristic=heuristic_key,
@@ -647,27 +643,13 @@ elif tab == "ЛР3":
         cg3.metric("Кількість розв'язків", ga_nsol)
         st.caption(f"Покоління з покращеннями: {ga_iters}")
 
-        fig_ga, ax_ga = plt.subplots(figsize=(6.5, 2.5))
-        fig_ga.patch.set_alpha(0);
-        ax_ga.set_facecolor("none")
-        ax_ga.plot(ga_hist, color="cyan", linewidth=1.5)
-        for it in ga_iters:
-            ax_ga.axvline(x=it - 1, color="cyan", linestyle=":", alpha=0.5)
-            ax_ga.text(it - 1, ga_hist[it - 1], str(it), color="cyan", fontsize=7, va="bottom")
-        ax_ga.set_xlabel("Покоління", color="white")
-        ax_ga.set_ylabel(f"Найкращий {label}", color="white")
-        ax_ga.tick_params(colors="white")
-        for sp in ax_ga.spines.values(): sp.set_color("white")
-        c1b, c2b, c3b = st.columns([1, 3, 1])
-        with c2b:
-            st.pyplot(fig_ga)
+
 
         # відстані від знайденого ранжування до кожного експерта — та сама метрика Кука
         dist_fn = cook_distance_e1 if heuristic_key == "E1" else cook_distance_e2
-        st.subheader("Відстані від знайденого ранжування до кожного експерта (метрика Кука)")
+        st.subheader("Відстані від знайденого ранжування до кожного експерта")
         dist_rows = [
-            {"Експерт": t[0], "1-й вибір": t[1], "2-й вибір": t[2],
-             "3-й вибір": t[3], "Відстань Кука": dist_fn(ga_perm, t)}
+            {"Експерт": t[0], "Відстань:": dist_fn(ga_perm, t)}
             for t in triples
         ]
         dist_df = pd.DataFrame(dist_rows)
@@ -686,8 +668,7 @@ elif tab == "ЛР3":
             scale_results.append({
                 "Альтернативи": n_objs, "Експерти": n_exps,
                 "Мін. сума": val_s,
-                "Покращень": len(iters_s),
-                "Перше покращення": iters_s[0] if iters_s else "—"
+                "Покращень": len(iters_s)
             })
         st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
 
