@@ -570,9 +570,6 @@ elif tab == "ЛР3":
     st.divider()
 
     st.header("Метрики відстані Кука")
-    st.divider()
-
-    st.header("Прямий перебір - визначення медіани Кемені")
     n_fact=math.factorial(n_winners)
     st.markdown(f"Кількість перестановок = {n_winners}! - {n_fact:,}")
 
