@@ -622,13 +622,11 @@ elif tab == "ЛР3":
     st.divider()
 
     if st.button("Запустити", key="run_ga_lr3"):
-
         results = []
-
         for ga_fm_lr3 in ["sum", "max"]:
             label = "сума" if ga_fm_lr3 == "sum" else "максимум"
 
-            with st.spinner(f"ГА: мін. {label} відстаней..."):
+            with st.spinner(f"ГА: мін. {label} відстаней"):
                 ga_perm, ga_val, ga_hist, ga_iters, ga_nsol = genetic_rank_cook(
                     winners, triples,
                     heuristic=heuristic_key,
@@ -639,9 +637,9 @@ elif tab == "ЛР3":
             results.append((ga_fm_lr3, label, ga_perm, ga_val, ga_iters, ga_nsol))
 
         for ga_fm_lr3, label, ga_perm, ga_val, ga_iters, ga_nsol in results:
-            st.subheader(f"Результат: мінімізація ({label})")
+            st.subheader(f"Результат ({label})")
 
-            st.markdown(f"Ранжування: **{' > '.join(ga_perm)}**")
+            st.markdown(f"Ранжування: {' > '.join(ga_perm)}")
             cg1, cg2, cg3 = st.columns(3)
             cg1.metric(f"Найкраще ({label})", ga_val)
             cg2.metric("Покращень знайдено", len(ga_iters))
@@ -664,6 +662,43 @@ elif tab == "ЛР3":
             cs.metric("Сума відстаней", dist_df["Відстань"].sum())
             cm.metric("Максимум відстані", dist_df["Відстань"].max())
 
+            # 👉 Порівняльна таблиця
+            st.subheader("Порівняння двох критеріїв")
+
+            # витягуємо результати
+            res_sum = next(r for r in results if r[0] == "sum")
+            res_max = next(r for r in results if r[0] == "max")
+
+            _, _, perm_sum, val_sum, _, nsol_sum = res_sum
+            _, _, perm_max, val_max, _, nsol_max = res_max
+
+            dist_fn = cook_distance_e1 if heuristic_key == "E1" else cook_distance_e2
+
+            # рахуємо відстані
+            dist_sum = [dist_fn(perm_sum, t) for t in triples]
+            dist_max = [dist_fn(perm_max, t) for t in triples]
+
+            compare_data = [
+                {
+                    "Критерій": "Сума відстаней (K1)",
+                    "Ранжування K1": sum(dist_sum),
+                    "Ранжування K2": sum(dist_max),
+                },
+                {
+                    "Критерій": "Максимум відстані (K2)",
+                    "Ранжування K1": max(dist_sum),
+                    "Ранжування K2": max(dist_max),
+                },
+                {
+                    "Критерій": "Кількість розв'язків",
+                    "Ранжування K1": nsol_sum,
+                    "Ранжування K2": nsol_max,
+                },
+            ]
+
+            compare_df = pd.DataFrame(compare_data)
+
+            st.dataframe(compare_df, use_container_width=True, hide_index=True)
             st.divider()
 
     st.header("ГА: 20 / 50 / 100 альтернатив")
