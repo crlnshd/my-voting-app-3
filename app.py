@@ -624,7 +624,7 @@ elif tab == "ЛР3":
     st.header("Еволюційний алгоритм")
 
     ga_mode_lr3 = st.radio("Критерій", ["Мінімізація суми", "Мінімізація максимуму"], horizontal=True,key="ga_mode_lr3")
-    ga_fm_lr3 = "sum" if "суми" in ga_mode_lr3 else "max"
+    ga_fm_lr3 = "sum" if "сума" in ga_mode_lr3 else "max"
 
     if st.button("Запустити", key="run_ga_lr3"):
         label = "сума" if ga_fm_lr3 == "sum" else "максимум"
