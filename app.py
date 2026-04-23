@@ -114,11 +114,12 @@ def apply_heuristicsStep(objects_list,heuristics_order,counts,scores):
                     "Видалено":", ".join(removed) if removed else "—","Залишилось":len(current)})
     return current, log
 
-# ── ГА (не змінювати) ──
+#створює експертів для тестів
 def generate_expert_perms(objects_subset: list, n_experts: int = 20, seed: int = 42) -> list[list]:
     rng = random.Random(seed)
     return [rng.sample(objects_subset, len(objects_subset)) for _ in range(n_experts)]
 
+# 1 != 2 , to +1
 def firstdist(perm_a: list, perm_b: list) -> int:
     dist = 0
     for i in range(len(perm_a)):
@@ -198,7 +199,6 @@ def genetic_rank(
 
     return best_perm, -best_fit, history, improve_iters, len(best_solutions)
 
-# ── ЛР3 допоміжні ──
 def load_expert_triples_from_votes(votes_file, objects_subset):
     if not os.path.exists(votes_file):
         return []
@@ -230,8 +230,6 @@ def build_preference_matrix(triples, objects_subset):
 def build_rank_matrix(triples, objects_subset):
     rows=[{"Експерт":e,"1-й":o1,"2-й":o2,"3-й":o3} for e,o1,o2,o3 in triples]
     return pd.DataFrame(rows)
-
-
 def build_expert_stats_table(triples, objects_subset):
     stats = pd.DataFrame(0, index=["1", "2", "3", " "], columns=objects_subset)
     for _, o1, o2, o3 in triples:
@@ -241,7 +239,7 @@ def build_expert_stats_table(triples, objects_subset):
     stats.loc[" "] = stats.iloc[0:3].sum()
     return stats
 def cook_distance_e1(ranks_vec, triple):
-    _,o1,o2,o3=triple
+    _,o1,o2,o3= triple
     pos={o:i for i,o in enumerate(ranks_vec)}
     chosen=[o for o in [o1,o2,o3] if o in pos]
     if not chosen: return 0
@@ -269,20 +267,17 @@ def brute_force_median(objects_subset, triples, heuristic="E1"):
     best_perms_max = []
     sample_rows = []
 
-    # Створюємо список всіх можливих перестановок
+    # список всіх можливих перестановок
     all_perms = list(itertools.permutations(objects_subset))
-
     for idx, perm in enumerate(all_perms):
         p_list = list(perm)
-        # Рахуємо відстані до КОЖНОГО експерта окремо
+        # відстані до експерта окремо
         dists = [dist_fn(p_list, t) for t in triples]
         s = sum(dists)
         m = max(dists)
 
-        # Зберігаємо перші 50 рядків для звіту
         if idx < 50:
             row = {"№": idx + 1, "Перестановка": " > ".join(p_list)}
-            # Додаємо колонки d1, d2... як на скріншоті
             for i, d in enumerate(dists):
                 row[f"d{i + 1}"] = d
             row["Сума"] = s
@@ -306,11 +301,9 @@ def restore_ranking(perms, objects_subset):
     rows=[{o:i+1 for i,o in enumerate(perm)} for perm in perms]
     return pd.DataFrame(rows,columns=objects_subset)
 
-# масштабування — також використовує genetic_rank + firstdist
 def ga_for_scale(n_objs, n_experts, fitness_mode="sum", seed=1):
     rng = random.Random(seed)
     objs = [f"O{i+1}" for i in range(n_objs)]
-    # генеруємо повні перестановки для кожного "експерта"
     perms = [rng.sample(objs, n_objs) for _ in range(n_experts)]
     perm, val, hist, iters, _ = genetic_rank(
         objs, perms, fitness_mode=fitness_mode,
@@ -318,10 +311,8 @@ def ga_for_scale(n_objs, n_experts, fitness_mode="sum", seed=1):
     )
     return perm, val, hist, iters
 def genetic_rank_cook(objects_subset, triples, heuristic="E1",
-                      fitness_mode="sum", pop_size=80,
+                      fitness_mode="sum", pop_size=1000,
                       generations=200, mut_rate=0.10):
-    # той самий ГА що й genetic_rank, але відстань — метрика Кука по реальних трійках
-    # щоб використовувати ТІ САМІ ДАНІ що й прямий перебір (п.16 завдання)
     n = len(objects_subset)
     dist_fn = cook_distance_e1 if heuristic == "E1" else cook_distance_e2
 
@@ -409,7 +400,7 @@ tab = st.sidebar.selectbox("Розділ",[
     "Результати ЛР1","Голосування за евристики","Застосування евристик","Генетичний алгоритм","ЛР3","Адмін"
 ])
 
-# ══ ЛР1 ══
+# ЛР1
 if tab=="Результати ЛР1":
     st.title("Результати лабораторної роботи №1")
     rows=[]
@@ -429,7 +420,7 @@ if tab=="Результати ЛР1":
     c1,c2,c3=st.columns([1,2,1])
     with c2: st.pyplot(fig)
 
-# ══ Голосування за евристики ══
+# Голосування за евристики
 elif tab=="Голосування за евристики":
     st.title("Голосування за пріоритетність евристик")
     st.subheader("Перелік евристик")
@@ -449,7 +440,7 @@ elif tab=="Голосування за евристики":
             df_h.to_csv(H_VOTES_FILE,index=False)
             st.success(f"Голос збережено. Ваш вибір: **{h1}** > **{h2}** > **{h3}**")
 
-# ══ Генетичний алгоритм (незмінений) ══
+# Генетичний алгоритм
 elif tab == "Генетичний алгоритм":
     st.title("Генетичний алгоритм")
     df_h = load_h_votes()
@@ -508,7 +499,7 @@ elif tab == "Генетичний алгоритм":
         })
         st.dataframe(cmp_df, use_container_width=True, hide_index=True)
 
-# ══ Застосування евристик ══
+# Застосування евристик
 elif tab=="Застосування евристик":
     st.title("Застосування евристик")
     df_h=load_h_votes()
@@ -536,7 +527,7 @@ elif tab=="Застосування евристик":
     st.dataframe(final_df,use_container_width=True)
     if len(final_set)<=10: st.success(f"Підмножину звужено до **{len(final_set)} об'єктів**")
 
-# ══ ЛР3 ══
+# ЛР3
 elif tab == "ЛР3":
     data_mode = st.radio(
         "Оберіть набір даних:",
@@ -561,8 +552,6 @@ elif tab == "ЛР3":
         winners, triples = generate_mock_data(n_objs=8, n_experts=13)
         n_winners=len(winners)
 
-
-
     st.header("Множинні порівняння")
     display_data = {}
     for i, (name, o1, o2, o3) in enumerate(triples):
@@ -570,7 +559,6 @@ elif tab == "ЛР3":
     df_triples_styled = pd.DataFrame(display_data)
     df_triples_styled.index = [" ", "Множинні порівняння", " "]
     st.dataframe(df_triples_styled, use_container_width=True)
-
 
     st.header("Матриця відношень переваги")
     stats_df = build_expert_stats_table(triples, winners)
@@ -600,9 +588,6 @@ elif tab == "ЛР3":
         with st.spinner(f"Перебір {n_fact:,} перестановок"):
             best_sum,best_max,min_sum,min_max,sample_rows=brute_force_median(winners,triples,heuristic=heuristic_key)
 
-        triples_df = build_rank_matrix(triples, winners)
-        pref_matrix = build_preference_matrix(triples, winners)
-
         st.subheader("Перші 50 рядків")
         st.dataframe(pd.DataFrame(sample_rows), use_container_width=True, hide_index=True)
 
@@ -624,17 +609,19 @@ elif tab == "ЛР3":
         st.markdown("Ранги для медіан за мін.макс.: ")
         rm=restore_ranking(best_max[:5],winners); rm.index=[f"Медіана {i+1}" for i in range(len(rm))]
         st.dataframe(rm,use_container_width=True)
+        triples_df = build_rank_matrix(triples, winners)
 
-        output=io.StringIO()
-        output.write("ЛР3\n\n")
-        output.write(f"Евристика Кука: {heuristic_key}\nОб'єкти: {', '.join(winners)}\n\n")
-        output.write(f"Мін. сума: {min_sum}\nМедіани (сума):\n")
-        for p in best_sum: output.write("  "+" > ".join(p)+"\n")
-        output.write(f"\nМін. макс.: {min_max}\nМедіани (макс.):\n")
-        for p in best_max: output.write("  "+" > ".join(p)+"\n")
-        output.write("\nМножинні порівняння:\n"+triples_df.to_string(index=False))
-        output.write("\n\nМатриця переваги:\n"+pref_matrix.to_string())
-        st.download_button("Зберегти результати у .txt",data=output.getvalue().encode("utf-8"),file_name="lab3_results.txt",mime="text/plain")
+    pref_matrix = build_preference_matrix(triples, winners)
+    output=io.StringIO()
+    output.write("ЛР3\n\n")
+    output.write(f"Евристика Кука: {heuristic_key}\nОб'єкти: {', '.join(winners)}\n\n")
+    output.write(f"Мін. сума: {min_sum}\nМедіани (сума):\n")
+    for p in best_sum: output.write("  "+" > ".join(p)+"\n")
+    output.write(f"\nМін. макс.: {min_max}\nМедіани (макс.):\n")
+    for p in best_max: output.write("  "+" > ".join(p)+"\n")
+    output.write("\nМножинні порівняння:\n"+triples_df.to_string(index=False))
+    output.write("\n\nМатриця переваги:\n"+pref_matrix.to_string())
+    st.download_button("Зберегти результати у .txt",data=output.getvalue().encode("utf-8"),file_name="lab3_results.txt",mime="text/plain")
 
     st.divider()
     st.header("Еволюційний алгоритм")
