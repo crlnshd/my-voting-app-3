@@ -437,32 +437,36 @@ def calculate_satisfaction(raw_triples, consensus_perm):
     return pd.DataFrame(results)
 
 
-def distributed_brute_force_sim(objects_subset, triples, workers=4):
-    def process_chunk(chunk):
-        local_min = float("inf")
-        local_best = []
-        for perm in chunk:
-            p_list = list(perm)
-            s = sum(cook_distance_e2(p_list, t) for t in triples)
-            if s < local_min:
-                local_min = s
-                local_best = [p_list]
-            elif s == local_min:
-                local_best.append(p_list)
-        return local_min, local_best
+# 1. Ця функція тепер живе ОКРЕМО (щоб процеси могли її бачити)
+def process_chunk_global(args):
+    chunk, triples = args
+    local_min = float("inf")
+    local_best = []
+    for perm in chunk:
+        p_list = list(perm)
+        s = sum(cook_distance_e2(p_list, t) for t in triples)
+        if s < local_min:
+            local_min = s
+            local_best = [p_list]
+        elif s == local_min:
+            local_best.append(p_list)
+    return local_min, local_best
 
+
+def distributed_brute_force_sim(objects_subset, triples, workers=4):
     tasks = []
     for first_obj in objects_subset:
         rem_objs = [o for o in objects_subset if o != first_obj]
         chunk = [(first_obj,) + p for p in itertools.permutations(rem_objs)]
-        tasks.append(chunk)
+        tasks.append((chunk, triples))
 
     start = time.time()
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(process_chunk, t) for t in tasks]
-        for f in concurrent.futures.as_completed(futures):
-            results.append(f.result())
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+        for result in executor.map(process_chunk_global, tasks):
+            results.append(result)
+
     t_dist = time.time() - start
 
     global_min = float("inf")
