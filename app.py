@@ -903,10 +903,30 @@ elif tab == "ЛР4":
         dist_best, dist_min, t_dist = distributed_brute_force_sim(test_winners, test_triples, workers=4)
 
         col_c, col_d = st.columns(2)
-        col_c.metric("Централізовано (1 потік)", f"{t_cent:.4f} сек")
-        col_d.metric("Розподілено (4 потоки)", f"{t_dist:.4f} сек", f"Пришвидшення: {t_cent / t_dist:.2f}x")
-        if dist_min == min_s:
-            st.success("Доведено: розподілений перебір видає ідентичний результат медіани")
+
+        with col_c:
+            st.markdown("Централізовано")
+            st.metric("Час виконання (1 потік)", f"{t_cent:.4f} сек")
+            st.metric("Мінімальна сума відстаней", min_s)
+            st.markdown("Знайдені компромісні ранжування:")
+            for p in best_s[:5]:
+                st.code(" > ".join(p))
+
+        with col_d:
+            st.markdown("Розподілено")
+            st.metric("Час виконання (4 потоки)", f"{t_dist:.4f} сек", f"Пришвидшення: {t_cent / t_dist:.2f}x")
+            st.metric("Мінімальна сума відстаней", dist_min)
+            st.markdown("Знайдені компромісні ранжування:")
+            for p in dist_best[:5]:
+                st.code(" > ".join(p))
+
+        st.divider()
+        # Фінальне порівняння для доведення
+        if dist_min == min_s and sorted(best_s) == sorted(dist_best):
+            st.success(
+                f"Доведено: \n ({min_s} == {dist_min}) результати абсолютно ідентичні")
+        else:
+            st.error("Увага: результати не співпали!")
 
     st.subheader("Еволюційні алгоритми для великих розмірностей (n >> 12)")
 
