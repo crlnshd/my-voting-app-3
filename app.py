@@ -885,7 +885,7 @@ elif tab == "ЛР4":
 
     if st.button("Порівняти: централізований vs розподілений", key="lr4_brute_dist"):
         # 8 об'єктів для тесту
-        test_winners = winners[:9]
+        test_winners = winners[:8]
         test_triples = triples_filtered
         st.write(
             f"Тестування на підмножині {len(test_winners)} об'єктів ({math.factorial(len(test_winners)):,} комбінацій)..")
