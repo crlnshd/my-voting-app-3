@@ -430,8 +430,8 @@ def calculate_satisfaction(raw_triples, consensus_perm):
         s_j = max(0, min(100, s_j))
         results.append({
             "Експерт": name,
-            "Трійка (ЛР1)": f"{o1} > {o2} > {o3}",
-            "Штраф (d_j)": d_j,
+            "Вибір": f"{o1} > {o2} > {o3}",
+            "Відстань": d_j,
             "Задоволеність (%)": round(s_j, 2)
         })
     return pd.DataFrame(results)
@@ -847,7 +847,7 @@ elif tab == "ЛР4":
     triples_filtered = load_expert_triples_from_votes(VOTES_FILE, winners)
 
     # ситуація А
-    st.header("Ситуація А: Індекси задоволеності експертів")
+    st.header("Ситуація А: індекси задоволеності експертів")
     st.markdown(f"Підмножина об'єктів (n={len(winners)}): {', '.join(winners)}")
 
     col1, col2 = st.columns(2)
@@ -863,7 +863,7 @@ elif tab == "ЛР4":
                 best_s, best_m, min_s, min_m, _ = brute_force_median(winners, triples_filtered, heuristic="E2")
                 # довільне компромісне ранжування з множини оптимальних
                 consensus_R = best_s[0]
-                st.success(f"Обрано компромісне ранжування R*:\n {' > '.join(consensus_R)}")
+                st.success(f"Ранжування:\n {' > '.join(consensus_R)}")
 
                 df_sat = calculate_satisfaction(raw_triples, consensus_R)
                 st.dataframe(df_sat, use_container_width=True, hide_index=True)
@@ -885,7 +885,7 @@ elif tab == "ЛР4":
 
     if st.button("Порівняти: централізований vs розподілений", key="lr4_brute_dist"):
         # 8 об'єктів для тесту
-        test_winners = winners[:8]
+        test_winners = winners[:30]
         test_triples = triples_filtered
         st.write(
             f"Тестування на підмножині {len(test_winners)} об'єктів ({math.factorial(len(test_winners)):,} комбінацій)..")
