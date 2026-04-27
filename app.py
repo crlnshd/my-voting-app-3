@@ -953,17 +953,33 @@ elif tab == "ЛР4":
 
         # вивід протоколу
         output = io.StringIO()
-        output.write("ЛР4. Протокол розподілених обчислень\n\n")
-        output.write(f"Альтернатив: {n_sim}, експертів: {n_exp}\n\n")
-        output.write("Розподілений прямий перебір\n")
-        output.write(
-            "Схема декомпозиції: розбиття N! перестановок на N незалежних підмножин з фіксованим 1-м елементом\n\n")
-        output.write("Еволюційні алгоритми\n")
-        output.write(f"Централізовано: час {t_cent:.4f}c, мін.сума: {-c_val}\n")
-        output.write(f"Розподілено: час {t_dist:.4f}c, мін.сума: {-best_island[1]}\n")
+        output.write("ЛР4. Протокол розподілених обчислень та індексів задоволеності\n")
+        output.write("=" * 60 + "\n\n")
 
-        st.download_button("Завантажити протокол ЛР4", data=output.getvalue().encode("utf-8"),
-                           file_name="lab4_protocol.txt", mime="text/plain")
+        output.write("СИТУАЦІЯ А\n")
+        output.write(f"Підмножина об'єктів (n={len(winners)}): {', '.join(winners)}\n")
+        output.write(f"Компромісне ранжування: {' > '.join(consensus_R)}\n\n")
+
+        output.write("Індекси задоволеності експертів:\n")
+        output.write(df_sat.to_string(index=False))
+        output.write(f"\n\nКолективний індекс задоволеності групи: {avg_sat:.2f}%\n\n")
+
+        output.write("=" * 60 + "\n\n")
+        output.write("СИТУАЦІЯ Б\n")
+        output.write(f"Альтернатив: {n_sim}, експертів: {n_exp}\n\n")
+
+        output.write("[Розподілений прямий перебір]\n")
+        output.write(
+            "Схема декомпозиції: розбиття N! перестановок на N незалежних підмножин з фіксованим 1-м елементом.\n")
+        output.write(f"Час 1 потік: {t_cent:.4f}c | Час 4 потоки: {t_dist:.4f}c\n\n")
+
+        output.write("[Еволюційні алгоритми]\n")
+        output.write(f"Централізовано: час {t_cent:.4f}c, мін.сума: {-c_val}\n")
+        output.write(f"Розподілено (4 острови): час {t_dist:.4f}c, мін.сума: {-best_island[1]}\n")
+        output.write(f"Покращення розв'язку: від {-c_val} до {-best_island[1]}\n")
+
+        st.download_button("Завантажити повний протокол ЛР4", data=output.getvalue().encode("utf-8"),
+                           file_name="lab4_full_protocol.txt", mime="text/plain")
 
 
 # ══ Адмін ══
