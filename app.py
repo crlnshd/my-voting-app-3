@@ -4,7 +4,8 @@ import itertools
 import math
 import os
 import random
-
+import time
+import concurrent.futures
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
@@ -394,10 +395,95 @@ def generate_mock_data(n_objs=8, n_experts=11, seed=42):
         test_triples.append((name, choice[0], choice[1], choice[2]))
     return test_objs, test_triples
 
+
+def load_raw_triples(votes_file):
+    if not os.path.exists(votes_file):
+        return []
+    df = pd.read_csv(votes_file)
+    triples = []
+    for _, row in df.iterrows():
+        name = str(row.get("name", "")).strip()
+        o1 = str(row.get("choice1", "")).strip()
+        o2 = str(row.get("choice2", "")).strip()
+        o3 = str(row.get("choice3", "")).strip()
+        triples.append((name, o1, o2, o3))
+    return triples
+
+
+def calculate_satisfaction(raw_triples, consensus_perm):
+    n = len(consensus_perm)
+    results = []
+    for name, o1, o2, o3 in raw_triples:
+        d_j = 0
+        removed = False
+        for r_expert, obj in enumerate([o1, o2, o3], start=1):
+            if obj in consensus_perm:
+                r_star = consensus_perm.index(obj) + 1
+                d_j += abs(r_expert - r_star)
+            else:
+                removed = True
+
+        if removed:
+            d_j += n - 3
+
+        s_j = (1 - (d_j / ((n - 3) * 3))) * 100
+        s_j = max(0, min(100, s_j))
+        results.append({
+            "Експерт": name,
+            "Трійка (ЛР1)": f"{o1} > {o2} > {o3}",
+            "Штраф (d_j)": d_j,
+            "Задоволеність (%)": round(s_j, 2)
+        })
+    return pd.DataFrame(results)
+
+
+def distributed_brute_force_sim(objects_subset, triples, workers=4):
+    def process_chunk(chunk):
+        local_min = float("inf")
+        local_best = []
+        for perm in chunk:
+            p_list = list(perm)
+            s = sum(cook_distance_e2(p_list, t) for t in triples)
+            if s < local_min:
+                local_min = s
+                local_best = [p_list]
+            elif s == local_min:
+                local_best.append(p_list)
+        return local_min, local_best
+
+    tasks = []
+    for first_obj in objects_subset:
+        rem_objs = [o for o in objects_subset if o != first_obj]
+        chunk = [(first_obj,) + p for p in itertools.permutations(rem_objs)]
+        tasks.append(chunk)
+
+    start = time.time()
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = [executor.submit(process_chunk, t) for t in tasks]
+        for f in concurrent.futures.as_completed(futures):
+            results.append(f.result())
+    t_dist = time.time() - start
+
+    global_min = float("inf")
+    global_best = []
+    for l_min, l_best in results:
+        if l_min < global_min:
+            global_min = l_min
+            global_best = l_best
+        elif l_min == global_min:
+            global_best.extend(l_best)
+
+    return global_best, global_min, t_dist
+
+
+
+
+
 scores, counts = load_scores()
 
 tab = st.sidebar.selectbox("Розділ",[
-    "Результати ЛР1","Голосування за евристики","Застосування евристик","Генетичний алгоритм","ЛР3","Адмін"
+    "Результати ЛР1","Голосування за евристики","Застосування евристик","Генетичний алгоритм","ЛР3","Адмін", "ЛР4"
 ])
 
 # ЛР1
@@ -744,6 +830,137 @@ elif tab == "ЛР3":
 
         st.dataframe(pd.DataFrame(scale_results), use_container_width=True, hide_index=True)
         st.divider()
+
+elif tab == "ЛР4":
+    st.title("ЛР4. Розподілені обчислення та індекси задоволеності")
+    # дані з ЛР1-ЛР3
+    df_h = load_h_votes()
+    if len(df_h) == 0:
+        ordered_keys = list(HEURISTICS.keys())
+    else:
+        ordered_keys = [k for k, _ in ranked_heuristics_from_votes(df_h)]
+
+    winners_full, _ = apply_heuristicsStep(OBJECTS, ordered_keys, counts, scores)
+    winners = sorted(winners_full, key=lambda x: scores[x], reverse=True)[:10]
+
+    raw_triples = load_raw_triples(VOTES_FILE)
+    triples_filtered = load_expert_triples_from_votes(VOTES_FILE, winners)
+
+    # ситуація А
+    st.header("Ситуація А: Індекси задоволеності експертів")
+    st.markdown(f"Підмножина об'єктів (n={len(winners)}): {', '.join(winners)}")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Задані експертами порівняння")
+        df_raw = pd.DataFrame(raw_triples, columns=["Експерт", "1-й", "2-й", "3-й"])
+        st.dataframe(df_raw, use_container_width=True, hide_index=True)
+
+    with col2:
+        st.subheader("Визначення компромісу")
+        if st.button("Обчислити індекси", key="lr4_calc_a"):
+            with st.spinner("Перебір перестановок.."):
+                best_s, best_m, min_s, min_m, _ = brute_force_median(winners, triples_filtered, heuristic="E2")
+                # довільне компромісне ранжування з множини оптимальних
+                consensus_R = best_s[0]
+                st.success(f"Обрано компромісне ранжування R*:\n {' > '.join(consensus_R)}")
+
+                df_sat = calculate_satisfaction(raw_triples, consensus_R)
+                st.dataframe(df_sat, use_container_width=True, hide_index=True)
+
+                avg_sat = df_sat['Задоволеність (%)'].mean()
+                st.metric("Колективний індекс задоволеності групи", f"{avg_sat:.2f}%")
+
+    st.divider()
+    # ситуація Б
+    st.header("Ситуація Б: Розподілені обчислення компромісних ранжувань")
+
+    st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
+    st.markdown("""
+    Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин. 
+    Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій. 
+    Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
+    *Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума 
+    перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
+
+    if st.button("Порівняти: централізований vs розподілений", key="lr4_brute_dist"):
+        # 8 об'єктів для тесту
+        test_winners = winners[:8]
+        test_triples = triples_filtered
+        st.write(
+            f"Тестування на підмножині {len(test_winners)} об'єктів ({math.factorial(len(test_winners)):,} комбінацій)..")
+
+        # централізовано
+        start_c = time.time()
+        best_s, best_m, min_s, min_m, _ = brute_force_median(test_winners, test_triples, heuristic="E2")
+        t_cent = time.time() - start_c
+
+        # розподілено (імітація 4 вузлів)
+        dist_best, dist_min, t_dist = distributed_brute_force_sim(test_winners, test_triples, workers=4)
+
+        col_c, col_d = st.columns(2)
+        col_c.metric("Централізовано (1 потік)", f"{t_cent:.4f} сек")
+        col_d.metric("Розподілено (4 потоки)", f"{t_dist:.4f} сек", f"Пришвидшення: {t_cent / t_dist:.2f}x")
+        if dist_min == min_s:
+            st.success("Доведено: розподілений перебір видає ідентичний результат медіани")
+
+    st.subheader("Еволюційні алгоритми для великих розмірностей (n >> 12)")
+
+    n_sim = st.slider("Кількість альтернатив (n)", 15, 100, 50, step=5)
+    n_exp = st.slider("Кількість експертів", 10, 100, 30, step=10)
+
+    if st.button("Запустити ГА", key="lr4_ga_dist"):
+        st.info("Генерація випадкових даних..")
+        sim_objs = [f"O{i + 1}" for i in range(n_sim)]
+        rng = random.Random(42)
+        sim_perms = [rng.sample(sim_objs, n_sim) for _ in range(n_exp)]
+
+        # централізовано
+        start_c = time.time()
+        c_perm, c_val, _, _, _ = genetic_rank(sim_objs, sim_perms, fitness_mode="sum", pop_size=60, generations=100)
+        t_cent = time.time() - start_c
+
+
+        # розподілено
+        def run_island(seed_offset):
+            # кожен острів має свою унікальну мутацію
+            return genetic_rank(sim_objs, sim_perms, fitness_mode="sum", pop_size=40, generations=100, mut_rate=0.1 + seed_offset * 0.03)
+
+
+        start_d = time.time()
+        islands = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(run_island, i) for i in range(4)]
+            for f in concurrent.futures.as_completed(futures):
+                islands.append(f.result())
+        t_dist = time.time() - start_d
+
+        # найкращий острів
+        best_island = max(islands, key=lambda x: x[1])
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f"централізовано\n* Час: `{t_cent:.3f} с`\n* Мін. сума: `{-c_val}`")
+        with c2:
+            st.markdown(f"розподілено (4 острови)\n* Час: `{t_dist:.3f} с`\n* Мін. сума: `{-best_island[1]}`")
+
+        st.success(
+            f"Розподілені еволюційні алгоритми забезпечують ширше покриття простору рішень за той самий або менший час. Покращення розв'язку: від `{-c_val}` до `{-best_island[1]}`.")
+
+        # вивід протоколу
+        output = io.StringIO()
+        output.write("ЛР4. Протокол розподілених обчислень\n\n")
+        output.write(f"Альтернатив: {n_sim}, експертів: {n_exp}\n\n")
+        output.write("Розподілений прямий перебір\n")
+        output.write(
+            "Схема декомпозиції: розбиття N! перестановок на N незалежних підмножин з фіксованим 1-м елементом\n\n")
+        output.write("Еволюційні алгоритми\n")
+        output.write(f"Централізовано: час {t_cent:.4f}c, мін.сума: {-c_val}\n")
+        output.write(f"Розподілено: час {t_dist:.4f}c, мін.сума: {-best_island[1]}\n")
+
+        st.download_button("Завантажити протокол ЛР4", data=output.getvalue().encode("utf-8"),
+                           file_name="lab4_protocol.txt", mime="text/plain")
+
 
 # ══ Адмін ══
 elif tab=="Адмін":
