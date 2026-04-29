@@ -881,20 +881,20 @@ elif tab == "ЛР4":
     # ситуація Б
     st.header("Ситуація Б: Розподілені обчислення компромісних ранжувань")
 
-    st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
-    st.markdown("""
-    Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин. 
-    Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій. 
-    Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
-    *Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума 
-    перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
+    #st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
+    #st.markdown("""
+    #Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин.
+    #Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій.
+    #Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
+    #*Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума
+    #перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
 
     if st.button("Порівняти: централізований vs розподілений", key="lr4_brute_dist"):
         # 8 об'єктів для тесту
         test_winners = winners[:8]
         test_triples = triples_filtered
         st.write(
-            f"Тестування на підмножині {len(test_winners)} об'єктів ({math.factorial(len(test_winners)):,} комбінацій)..")
+            f"Тестування на підмножині {len(test_winners)} об'єктів")
 
         # централізовано
         start_c = time.time()
@@ -946,10 +946,8 @@ elif tab == "ЛР4":
         c_perm, c_val, _, _, _ = genetic_rank(sim_objs, sim_perms, fitness_mode="sum", pop_size=60, generations=100)
         t_cent = time.time() - start_c
 
-
         # розподілено
         def run_island(seed_offset):
-            # кожен острів має свою унікальну мутацію
             return genetic_rank(sim_objs, sim_perms, fitness_mode="sum", pop_size=40, generations=100, mut_rate=0.1 + seed_offset * 0.03)
 
 
@@ -966,12 +964,31 @@ elif tab == "ЛР4":
 
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown(f"централізовано\n* Час: `{t_cent:.3f} с`\n* Мін. сума: `{-c_val}`")
+            st.markdown(f"централізовано\n* Час: `{t_cent:.3f} с`\n* Мін. сума: `{c_val}`")
         with c2:
-            st.markdown(f"розподілено (4 острови)\n* Час: `{t_dist:.3f} с`\n* Мін. сума: `{-best_island[1]}`")
+            st.markdown(f"розподілено\n* Час: `{t_dist:.3f} с`\n* Мін. сума: `{best_island[1]}`")
 
-        st.success(
-            f"Розподілені еволюційні алгоритми забезпечують ширше покриття простору рішень за той самий або менший час. Покращення розв'язку: від `{-c_val}` до `{-best_island[1]}`.")
+        col_t1, col_t2 = st.columns(2)
+
+        with col_t1:
+            central_top = [c_perm]
+            for _ in range(4):
+                ep, _, _, _, _ = genetic_rank(sim_objs, sim_perms, fitness_mode="sum", pop_size=60, generations=100)
+                if ep not in central_top:
+                    central_top.append(ep)
+            for i, p in enumerate(central_top[:5], 1):
+                st.markdown(f"{i}. {' > '.join(p)}")
+
+        with col_t2:
+            island_top = []
+            for isl in sorted(islands, key=lambda x: x[1]):
+                if isl[0] not in island_top:
+                    island_top.append(isl[0])
+                if len(island_top) >= 5:
+                    break
+            for i, p in enumerate(island_top[:5], 1):
+                st.markdown(f"{i}. {' > '.join(p)}")
+
 
         # вивід протоколу
         output = io.StringIO()
