@@ -1017,8 +1017,6 @@ elif tab == "ЛР4":
         output.write(f"Розподілено (4 острови): час {t_dist:.4f}c, мін.сума: {-best_island[1]}\n")
         output.write(f"Покращення розв'язку: від {-c_val} до {-best_island[1]}\n")
 
-        st.download_button("Завантажити повний протокол ЛР4", data=output.getvalue().encode("utf-8"),
-                           file_name="lab4_full_protocol.txt", mime="text/plain")
 
 
 # ══ Адмін ══
