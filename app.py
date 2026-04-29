@@ -463,7 +463,7 @@ def distributed_brute_force_sim(objects_subset, triples, workers=4):
     start = time.time()
     results = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
         for result in executor.map(process_chunk_global, tasks):
             results.append(result)
 
@@ -862,16 +862,6 @@ elif tab == "ЛР4":
         df_raw = pd.DataFrame(raw_triples, columns=["Експерт", "1-й", "2-й", "3-й"])
         st.dataframe(df_raw, use_container_width=True, hide_index=True)
 
-        st.subheader("Компромісні ранжування з ЛР3 (результати попередньої роботи)")
-        st.markdown("Медіани обчислені в ЛР3 на основі метрики Кука (E2, мін. сума відстаней).")
-        # Обчислюємо і показуємо — це і є "вивести результати ЛР3"
-        with st.spinner("Обчислення медіан (ЛР3)..."):
-            best_lr3, _, min_lr3, _, _ = brute_force_median(winners, triples_filtered, heuristic="E2")
-        st.metric("Мін. сума відстаней (ЛР3)", min_lr3)
-        for p in best_lr3[:3]:
-            st.markdown(f"**{' > '.join(p)}**")
-
-
     with col2:
         st.subheader("Визначення компромісу")
         if st.button("Обчислити індекси", key="lr4_calc_a"):
@@ -891,20 +881,20 @@ elif tab == "ЛР4":
     # ситуація Б
     st.header("Ситуація Б: Розподілені обчислення компромісних ранжувань")
 
-    #st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
-    #st.markdown("""
-    #Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин.
-    #Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій.
-    #Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
-    #*Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума
-    #перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
+    st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
+    st.markdown("""
+    Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин. 
+    Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій. 
+    Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
+    *Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума 
+    перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
 
     if st.button("Порівняти: централізований vs розподілений", key="lr4_brute_dist"):
         # 8 об'єктів для тесту
         test_winners = winners[:8]
         test_triples = triples_filtered
         st.write(
-            f"Тестування на підмножині {len(test_winners)} об'єктів")
+            f"Тестування на підмножині {len(test_winners)} об'єктів ({math.factorial(len(test_winners)):,} комбінацій)..")
 
         # централізовано
         start_c = time.time()
