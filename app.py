@@ -463,7 +463,7 @@ def distributed_brute_force_sim(objects_subset, triples, workers=4):
     start = time.time()
     results = []
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=workers) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
         for result in executor.map(process_chunk_global, tasks):
             results.append(result)
 
@@ -849,7 +849,9 @@ elif tab == "ЛР4":
 
     raw_triples = load_raw_triples(VOTES_FILE)
     triples_filtered = load_expert_triples_from_votes(VOTES_FILE, winners)
-
+    consensus_R = []
+    df_sat = pd.DataFrame()
+    avg_sat = 0.0
     # ситуація А
     st.header("Ситуація А: індекси задоволеності експертів")
     st.markdown(f"Підмножина об'єктів (n={len(winners)}): {', '.join(winners)}")
@@ -859,6 +861,16 @@ elif tab == "ЛР4":
         st.subheader("Задані експертами порівняння")
         df_raw = pd.DataFrame(raw_triples, columns=["Експерт", "1-й", "2-й", "3-й"])
         st.dataframe(df_raw, use_container_width=True, hide_index=True)
+
+        st.subheader("Компромісні ранжування з ЛР3 (результати попередньої роботи)")
+        st.markdown("Медіани обчислені в ЛР3 на основі метрики Кука (E2, мін. сума відстаней).")
+        # Обчислюємо і показуємо — це і є "вивести результати ЛР3"
+        with st.spinner("Обчислення медіан (ЛР3)..."):
+            best_lr3, _, min_lr3, _, _ = brute_force_median(winners, triples_filtered, heuristic="E2")
+        st.metric("Мін. сума відстаней (ЛР3)", min_lr3)
+        for p in best_lr3[:3]:
+            st.markdown(f"**{' > '.join(p)}**")
+
 
     with col2:
         st.subheader("Визначення компромісу")
@@ -879,20 +891,20 @@ elif tab == "ЛР4":
     # ситуація Б
     st.header("Ситуація Б: Розподілені обчислення компромісних ранжувань")
 
-    st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
-    st.markdown("""
-    Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин. 
-    Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій. 
-    Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
-    *Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума 
-    перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
+    #st.subheader("Декомпозиція прямого перебору (для n ≤ 12)")
+    #st.markdown("""
+    #Власна схема декомпозиції: множина всіх $n!$ перестановок розбивається на $n$ непересічних підмножин.
+    #Кожна підмножина фіксує один унікальний об'єкт на 1-й позиції, а решта $(n-1)$ об'єктів генерують $(n-1)!$ комбінацій.
+    #Такі підмножини відправляються на незалежні обчислювальні вузли (потоки).
+    #*Доведення повноти:* кожен об'єкт побуває на 1-му місці рівно 1 раз, і вузли переберуть усі залишки, загальна сума
+    #перестановок $n \cdot (n-1)! = n!$, без жодних дублювань чи пропусків""")
 
     if st.button("Порівняти: централізований vs розподілений", key="lr4_brute_dist"):
         # 8 об'єктів для тесту
         test_winners = winners[:8]
         test_triples = triples_filtered
         st.write(
-            f"Тестування на підмножині {len(test_winners)} об'єктів ({math.factorial(len(test_winners)):,} комбінацій)..")
+            f"Тестування на підмножині {len(test_winners)} об'єктів")
 
         # централізовано
         start_c = time.time()
@@ -914,7 +926,7 @@ elif tab == "ЛР4":
 
         with col_d:
             st.markdown("Розподілено")
-            st.metric("Час виконання (4 потоки)", f"{t_dist:.4f} сек", f"Пришвидшення: {t_cent / t_dist:.2f}x")
+            st.metric("Час виконання (4 потоки)", f"{t_dist:.4f} сек")
             st.metric("Мінімальна сума відстаней", dist_min)
             st.markdown("Знайдені компромісні ранжування:")
             for p in dist_best[:5]:
